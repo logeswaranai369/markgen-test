@@ -1,0 +1,98 @@
+- name: nginx Setup
+  hosts: localhost
+  tasks:
+      - name: Restarting sshd
+        shell: "sed -i 's/#Match User anoncvs/ForceCommand echo Please wait until the installation is completed..../g' /etc/ssh/sshd_config && (systemctl restart ssh 2>/dev/null || systemctl restart sshd)"
+
+      - name: Updating Packages
+        ansible.builtin.apt:
+          update_cache: yes
+
+      # ----- BEGIN app-specific tasks (LLM-generated from AppSpec) -----
+      - name: Install nginx package
+        apt:
+          name: nginx
+          state: latest
+        register: nginx_install
+
+      - name: Show nginx installation status
+        debug:
+          msg: "nginx package installed successfully"
+
+      - name: Enable and start nginx service
+        service:
+          name: nginx
+          state: started
+          enabled: yes
+
+      - name: Allow HTTP (port 80) through the firewall
+        ufw:
+          rule: allow
+          port: "80"
+          proto: tcp
+        ignore_errors: yes
+
+      - name: Allow HTTPS (port 443) through the firewall
+        ufw:
+          rule: allow
+          port: "443"
+          proto: tcp
+        ignore_errors: yes
+
+      - name: Validate nginx configuration
+        command: nginx -t
+        register: nginx_config_test
+        changed_when: false
+
+      - name: Show nginx config validation result
+        debug:
+          msg: "{{ nginx_config_test.stderr_lines }}"
+
+      - name: Reload nginx to apply configuration
+        service:
+          name: nginx
+          state: reloaded
+
+      - name: Wait for nginx to listen on port 80
+        wait_for:
+          port: 80
+          host: 127.0.0.1
+          timeout: 30
+
+      - name: Verify nginx welcome page returns HTTP 200
+        uri:
+          url: http://localhost/
+          status_code: 200
+        register: nginx_http_check
+        retries: 5
+        delay: 3
+        until: nginx_http_check.status == 200
+
+      - name: Show nginx health check result
+        debug:
+          msg: "nginx is up and serving HTTP 200 on http://localhost/"
+      # ----- END app-specific tasks -----
+
+
+
+      - name: Creating /opt/cloudstack directory
+        ansible.builtin.file:
+          path: /opt/cloudstack
+          state: directory
+
+      - name: Copy cleanup + update helper scripts
+        copy:
+          src: "{{ item.confsrc }}"
+          dest: "{{ item.confdest }}"
+        with_items:
+          - { confsrc: '/usr/local/src/nginx-24-04/opt/cloudstack/nginx_cleanup.sh', confdest: '/opt/cloudstack/'}
+          - { confsrc: '/usr/local/src/nginx-24-04/opt/cloudstack/nginx_update.sh', confdest: '/opt/cloudstack/'}
+
+      - name: Wire cleanup script to run on first login
+        lineinfile:
+          path: /root/.bashrc
+          line: "chmod +x /opt/cloudstack/nginx_cleanup.sh && /opt/cloudstack/nginx_cleanup.sh"
+          state: present
+
+      - name: Restarting sshd
+        shell: "sed -i 's/ForceCommand echo Please wait until the installation is completed..../#Match User anoncvs/g' /etc/ssh/sshd_config && (systemctl restart ssh 2>/dev/null || systemctl restart sshd)"
