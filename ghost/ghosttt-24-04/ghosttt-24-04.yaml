@@ -1,0 +1,285 @@
+- name: ghost Setup
+  hosts: localhost
+  tasks:
+      - name: Restarting sshd
+        shell: "sed -i 's/#Match User anoncvs/ForceCommand echo Please wait until the installation is completed..../g' /etc/ssh/sshd_config && (systemctl restart ssh 2>/dev/null || systemctl restart sshd)"
+
+      - name: Install and configure ghost
+        block:
+          # On a freshly-booted Ubuntu the apt/dpkg lock is held by cloud-init's boot-time
+          # `unattended-upgrades`/apt.systemd.daily. The first package task races it and fails with
+          # "Could not get lock /var/lib/dpkg/lock-frontend ... held by process N (unattended-upgr)".
+          # STOP the apt-daily timers/services FIRST so they cannot re-acquire the lock mid-run — a
+          # one-shot wait isn't enough for long installs (GitLab/BBB/desktop, ~20-40 min): the timer
+          # fires again during the install and kills a later apt task with rc=100 (hit live on Ubuntu
+          # Desktop). Then block until any in-progress lock clears before installing.
+          - name: Stop apt-daily timers/services so they can't grab the dpkg lock mid-install
+            shell: |
+              systemctl stop apt-daily.timer apt-daily-upgrade.timer 2>/dev/null || true
+              systemctl stop apt-daily.service apt-daily-upgrade.service unattended-upgrades.service 2>/dev/null || true
+              systemctl kill --kill-who=all apt-daily.service apt-daily-upgrade.service 2>/dev/null || true
+              exit 0
+            changed_when: false
+
+          - name: Await release of the apt/dpkg lock (boot-time unattended-upgrades)
+            shell: |
+              for i in $(seq 1 60); do
+                fuser /var/lib/dpkg/lock-frontend /var/lib/apt/lists/lock /var/cache/apt/archives/lock >/dev/null 2>&1 || exit 0
+                sleep 10
+              done
+              exit 0
+            changed_when: false
+
+          - name: Updating Packages
+            ansible.builtin.apt:
+              update_cache: yes
+              lock_timeout: 300
+
+          - name: Generating mysql_root_password
+            shell: openssl rand -hex 24
+            register: mysql_root_password
+
+          - name: Storing mysql_root_password
+            copy:
+              dest: "/root/.mysql_root_password"
+              content: |
+                mysql_root_password = "{{ mysql_root_password.stdout }}"
+          - name: Generating ghost_admin_password
+            shell: openssl rand -hex 24
+            register: ghost_admin_password
+
+          - name: Storing ghost_admin_password
+            copy:
+              dest: "/root/.ghost_admin_password"
+              content: |
+                ghost_admin_password = "{{ ghost_admin_password.stdout }}"
+
+
+          # ----- BEGIN app-specific tasks (LLM-generated from AppSpec) -----
+          - name: Set up NodeSource Node.js 22.x repository
+            debug:
+              msg: "Configuring NodeSource repository for Node.js 22.x (required by Ghost 6)"
+
+          - name: Download NodeSource setup script
+            get_url:
+              url: https://deb.nodesource.com/setup_22.x
+              dest: /tmp/nodesource_setup.sh
+              mode: '0755'
+
+          - name: Run NodeSource setup script (adds apt repo)
+            command: bash /tmp/nodesource_setup.sh
+            args:
+              creates: /etc/apt/sources.list.d/nodesource.list
+
+          - name: Install Node.js
+            debug:
+              msg: "Installing Node.js"
+
+          - name: Install Node.js package
+            apt:
+              name: nodejs
+              state: latest
+              lock_timeout: 300
+
+          - name: Install MySQL server
+            debug:
+              msg: "Installing MySQL server"
+
+          - name: Install MySQL server package
+            apt:
+              name: mysql-server
+              state: latest
+              lock_timeout: 300
+
+          - name: Install nginx and build tools
+            debug:
+              msg: "Installing nginx and build-essential"
+
+          - name: Install nginx and build-essential packages
+            apt:
+              name:
+                - nginx
+                - build-essential
+              state: latest
+              lock_timeout: 300
+
+          - name: Install PyMySQL for MySQL administration
+            apt:
+              name: python3-pymysql
+              state: latest
+              lock_timeout: 300
+
+          - name: Ensure MySQL is running and enabled
+            service:
+              name: mysql
+              state: started
+              enabled: yes
+
+          - name: Ensure nginx is running and enabled
+            service:
+              name: nginx
+              state: started
+              enabled: yes
+
+          # MySQL 8 (Ubuntu default) has NO multi-auth "OR unix_socket". Once the root password is set
+          # with mysql_native_password, socket auth is replaced. Test the PLUGIN (not a login) so this
+          # is idempotent — a login test would falsely pass under socket auth as OS root (rule 21).
+          - name: Secure MySQL root with a native password (idempotent, plugin-based)
+            shell: |
+              plugin=$(mysql -N -e "SELECT plugin FROM mysql.user WHERE user='root' AND host='localhost'")
+              if [ "$plugin" != "mysql_native_password" ]; then
+                mysql -e "ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY '{{ mysql_root_password.stdout }}'; FLUSH PRIVILEGES;"
+              fi
+            args:
+              executable: /bin/bash
+
+          - name: Install Ghost-CLI
+            debug:
+              msg: "Installing Ghost-CLI globally via npm"
+
+          - name: Install Ghost-CLI globally
+            command: npm install -g ghost-cli@latest
+            args:
+              creates: /usr/lib/node_modules/ghost-cli
+
+          # Ghost-CLI must NOT run as root and needs a non-root user with passwordless sudo (to write the
+          # systemd unit + nginx vhost). Cloud images ship 'ubuntu' with such sudo; ensure it regardless.
+          - name: Ensure ghost run user exists
+            user:
+              name: ubuntu
+              shell: /bin/bash
+              create_home: yes
+              state: present
+
+          - name: Grant passwordless sudo to ghost run user
+            copy:
+              dest: /etc/sudoers.d/90-ghost-ubuntu
+              content: "ubuntu ALL=(ALL) NOPASSWD:ALL\n"
+              mode: '0440'
+              validate: 'visudo -cf %s'
+
+          - name: Create Ghost install directory (owned by run user, must be empty)
+            file:
+              path: /var/www/ghost
+              state: directory
+              owner: ubuntu
+              group: ubuntu
+              mode: '0775'
+
+          - name: Install Ghost
+            debug:
+              msg: "Running ghost install into /var/www/ghost (MySQL + systemd + nginx)"
+
+          # --url http://localhost seeds the DB row and names the systemd unit ghost_localhost.
+          # Front-end assets use relative paths so the theme renders on any host; operator sets the real
+          # URL post-deploy (see post_install_notes). Ghost-CLI creates the ghost-NNN MySQL user itself,
+          # connecting as root over TCP with the password we just set. Idempotent via creates:.
+          - name: Install Ghost via Ghost-CLI as run user
+            become: yes
+            become_user: ubuntu
+            command: >
+              ghost install
+              --db mysql
+              --dbhost 127.0.0.1
+              --dbuser root
+              --dbpass '{{ mysql_root_password.stdout }}'
+              --dbname ghost_prod
+              --url http://localhost
+              --process systemd
+              --start
+              --no-prompt
+              --no-setup-ssl
+              --enable
+            args:
+              chdir: /var/www/ghost
+              creates: /var/www/ghost/config.production.json
+            environment:
+              PATH: "/usr/bin:/usr/local/bin:/bin:/usr/sbin:/sbin"
+
+          - name: Ensure Ghost systemd unit is enabled and started
+            service:
+              name: ghost_localhost
+              state: started
+              enabled: yes
+
+          - name: Wait for Ghost node process to listen on 2368
+            wait_for:
+              host: 127.0.0.1
+              port: 2368
+              timeout: 180
+
+          - name: Complete Ghost setup
+            debug:
+              msg: "Creating Ghost owner/admin account via setup API so the site is fully usable"
+
+          - name: Check whether Ghost setup is already complete
+            uri:
+              url: http://127.0.0.1:2368/ghost/api/admin/authentication/setup/
+              method: GET
+              status_code: [200]
+            register: ghost_setup_status
+            failed_when: false
+            retries: 10
+            delay: 6
+            until: ghost_setup_status.status == 200
+
+          - name: Create Ghost owner/admin account (first-run only)
+            uri:
+              url: http://127.0.0.1:2368/ghost/api/admin/authentication/setup/
+              method: POST
+              body_format: json
+              body:
+                setup:
+                  - name: "Administrator"
+                    email: "admin@localhost.local"
+                    password: "{{ ghost_admin_password.stdout }}"
+                    blogTitle: "Ghost"
+              status_code: [200, 201]
+            register: ghost_setup_result
+            failed_when: false
+            when: >
+              ghost_setup_status.json is defined and
+              not (ghost_setup_status.json.setup[0].status | default(false))
+
+          - name: Write credentials file for the operator
+            copy:
+              dest: /home/ubuntu/credentials.txt
+              owner: ubuntu
+              group: ubuntu
+              mode: '0600'
+              content: |
+                Ghost site (front-end):   http://<server-ip>/
+                Ghost admin panel:        http://<server-ip>/ghost/
+                Admin email:              admin@localhost.local
+                Admin password:           {{ ghost_admin_password.stdout }}
+
+                MySQL root password:      {{ mysql_root_password.stdout }}
+
+                NOTE: Ghost stores its URL (currently http://localhost) in
+                /var/www/ghost/config.production.json. To fix absolute links, run:
+                  cd /var/www/ghost
+                  sudo -u ubuntu ghost config url http://<domain-or-ip>
+                  sudo -u ubuntu ghost restart
+          # ----- END app-specific tasks -----
+
+          - name: Creating /opt/cloudstack directory
+            ansible.builtin.file:
+              path: /opt/cloudstack
+              state: directory
+
+          - name: Copy cleanup + update helper scripts
+            copy:
+              src: "{{ item.confsrc }}"
+              dest: "{{ item.confdest }}"
+            with_items:
+              - { confsrc: '/usr/local/src/ghosttt-24-04/opt/cloudstack/ghosttt-24-04_cleanup.sh', confdest: '/opt/cloudstack/'}
+              - { confsrc: '/usr/local/src/ghosttt-24-04/opt/cloudstack/ghosttt-24-04_update.sh', confdest: '/opt/cloudstack/'}
+
+          - name: Wire cleanup script to run on first login
+            lineinfile:
+              path: /root/.bashrc
+              line: "chmod +x /opt/cloudstack/ghosttt-24-04_cleanup.sh && /opt/cloudstack/ghosttt-24-04_cleanup.sh"
+              state: present
+        always:
+          - name: Restarting sshd
+            shell: "sed -i 's/ForceCommand echo Please wait until the installation is completed..../#Match User anoncvs/g' /etc/ssh/sshd_config && (systemctl restart ssh 2>/dev/null || systemctl restart sshd)"
