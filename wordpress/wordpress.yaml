@@ -1,0 +1,318 @@
+- name: wordpress Setup
+  hosts: localhost
+  tasks:
+      - name: Restarting sshd
+        shell: "sed -i 's/#Match User anoncvs/ForceCommand echo Please wait until the installation is completed..../g' /etc/ssh/sshd_config && (systemctl restart ssh 2>/dev/null || systemctl restart sshd)"
+
+      - name: Install and configure wordpress
+        block:
+          # On a freshly-booted Ubuntu the apt/dpkg lock is held by cloud-init's boot-time
+          # `unattended-upgrades`/apt.systemd.daily. The first package task races it and fails with
+          # "Could not get lock /var/lib/dpkg/lock-frontend ... held by process N (unattended-upgr)".
+          # STOP the apt-daily timers/services FIRST so they cannot re-acquire the lock mid-run — a
+          # one-shot wait isn't enough for long installs (GitLab/BBB/desktop, ~20-40 min): the timer
+          # fires again during the install and kills a later apt task with rc=100 (hit live on Ubuntu
+          # Desktop). Then block until any in-progress lock clears before installing.
+          - name: Stop apt-daily timers/services so they can't grab the dpkg lock mid-install
+            shell: |
+              systemctl stop apt-daily.timer apt-daily-upgrade.timer 2>/dev/null || true
+              systemctl stop apt-daily.service apt-daily-upgrade.service unattended-upgrades.service 2>/dev/null || true
+              systemctl kill --kill-who=all apt-daily.service apt-daily-upgrade.service 2>/dev/null || true
+              exit 0
+            changed_when: false
+
+          - name: Await release of the apt/dpkg lock (boot-time unattended-upgrades)
+            shell: |
+              for i in $(seq 1 60); do
+                fuser /var/lib/dpkg/lock-frontend /var/lib/apt/lists/lock /var/cache/apt/archives/lock >/dev/null 2>&1 || exit 0
+                sleep 10
+              done
+              exit 0
+            changed_when: false
+
+          - name: Updating Packages
+            ansible.builtin.apt:
+              update_cache: yes
+              lock_timeout: 300
+
+          - name: Generating wp_db_password
+            shell: openssl rand -hex 24
+            register: wp_db_password
+
+          - name: Storing wp_db_password
+            copy:
+              dest: "/root/.wp_db_password"
+              content: |
+                wp_db_password = "{{ wp_db_password.stdout }}"
+          - name: Generating wp_admin_password
+            shell: openssl rand -hex 24
+            register: wp_admin_password
+
+          - name: Storing wp_admin_password
+            copy:
+              dest: "/root/.wp_admin_password"
+              content: |
+                wp_admin_password = "{{ wp_admin_password.stdout }}"
+
+
+          # ----- BEGIN app-specific tasks (LLM-generated from AppSpec) -----
+          - name: Install Apache, PHP and required extensions
+            apt:
+              name:
+                - apache2
+                - php
+                - libapache2-mod-php
+                - php-mysql
+                - php-cli
+                - php-curl
+                - php-gd
+                - php-mbstring
+                - php-xml
+                - php-zip
+                - php-intl
+              state: latest
+              lock_timeout: 300
+
+          - name: Install MariaDB and PyMySQL
+            apt:
+              name:
+                - mariadb-server
+                - python3-pymysql
+              state: latest
+              lock_timeout: 300
+
+          - name: Ensure Apache and MariaDB are enabled and running
+            service:
+              name: "{{ item }}"
+              state: started
+              enabled: yes
+            loop:
+              - apache2
+              - mariadb
+
+          - name: Enable Apache rewrite module
+            command: a2enmod rewrite
+            register: a2enmod_rewrite
+            changed_when: "'already enabled' not in a2enmod_rewrite.stdout"
+
+          - name: Debug - securing MariaDB root
+            debug:
+              msg: "Securing MariaDB root (multi-auth password OR unix_socket)"
+
+          # Multi-auth: root can log in via generated password OR unix_socket, so sudo mysql keeps
+          # working for the rest of the play and root is never locked out. Idempotent.
+          - name: Secure MariaDB root (password + keep socket auth; no lockout)
+            shell: |
+              mysql -u root <<'SQL'
+              ALTER USER 'root'@'localhost' IDENTIFIED VIA mysql_native_password USING PASSWORD('{{ wp_db_password.stdout }}') OR unix_socket;
+              FLUSH PRIVILEGES;
+              SQL
+            args:
+              executable: /bin/bash
+
+          - name: Debug - creating WordPress database and user
+            debug:
+              msg: "Creating WordPress database and application user over unix socket"
+
+          - name: Create WordPress database
+            community.mysql.mysql_db:
+              login_unix_socket: /var/run/mysqld/mysqld.sock
+              name: wordpress
+              state: present
+
+          - name: Create WordPress database user
+            community.mysql.mysql_user:
+              login_unix_socket: /var/run/mysqld/mysqld.sock
+              name: wpuser
+              password: "{{ wp_db_password.stdout }}"
+              host: localhost
+              priv: "wordpress.*:ALL"
+              state: present
+
+          - name: Debug - downloading WordPress
+            debug:
+              msg: "Downloading and extracting WordPress into /var/www/html"
+
+          - name: Download latest WordPress tarball
+            get_url:
+              url: https://wordpress.org/latest.tar.gz
+              dest: /tmp/wordpress-latest.tar.gz
+              mode: '0644'
+
+          - name: Check if WordPress is already extracted
+            stat:
+              path: /var/www/html/wp-settings.php
+            register: wp_installed
+
+          - name: Remove default Apache index page
+            file:
+              path: /var/www/html/index.html
+              state: absent
+            when: not wp_installed.stat.exists
+
+          - name: Extract WordPress to web root
+            unarchive:
+              src: /tmp/wordpress-latest.tar.gz
+              dest: /var/www/html
+              remote_src: yes
+              extra_opts:
+                - --strip-components=1
+              owner: www-data
+              group: www-data
+            when: not wp_installed.stat.exists
+
+          - name: Download WP-CLI
+            get_url:
+              url: https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
+              dest: /usr/local/bin/wp
+              mode: '0755'
+
+          - name: Debug - generating wp-config.php
+            debug:
+              msg: "Generating wp-config.php with real DB credentials"
+
+          - name: Create wp-config.php with WP-CLI (real DB credentials)
+            command: >
+              wp config create
+              --path=/var/www/html
+              --dbname=wordpress
+              --dbuser=wpuser
+              --dbpass='{{ wp_db_password.stdout }}'
+              --dbhost=localhost
+              --skip-check
+              --force
+              --allow-root
+            args:
+              creates: /var/www/html/wp-config.php
+
+          - name: Fix wp-config.php ownership
+            file:
+              path: /var/www/html/wp-config.php
+              owner: www-data
+              group: www-data
+              mode: '0640'
+
+          # Public URL is unknown at install time (CloudStack NAT). Make WordPress URL-agnostic by
+          # deriving WP_HOME/WP_SITEURL from the request Host header, so it serves on any IP/hostname.
+          - name: Make WordPress URL-agnostic (serve on whatever host the browser used)
+            blockinfile:
+              path: /var/www/html/wp-config.php
+              marker: "// {mark} MARKGEN DYNAMIC SITE URL"
+              insertbefore: "^/\\* That's all, stop editing"
+              block: |
+                if ( isset( $_SERVER['HTTP_HOST'] ) ) {
+                    $markgen_scheme = ( ! empty( $_SERVER['HTTPS'] ) && $_SERVER['HTTPS'] !== 'off' ) ? 'https' : 'http';
+                    define( 'WP_HOME', $markgen_scheme . '://' . $_SERVER['HTTP_HOST'] );
+                    define( 'WP_SITEURL', $markgen_scheme . '://' . $_SERVER['HTTP_HOST'] );
+                }
+
+          - name: Debug - configuring Apache virtual host
+            debug:
+              msg: "Deploying Apache vhost with DocumentRoot /var/www/html"
+
+          - name: Deploy Apache virtual host (DocumentRoot matches extract path)
+            copy:
+              dest: /etc/apache2/sites-available/wordpress.conf
+              content: |
+                <VirtualHost *:80>
+                    ServerName _default_
+                    DocumentRoot /var/www/html
+                    DirectoryIndex index.php index.html
+                    <Directory /var/www/html>
+                        AllowOverride All
+                        Require all granted
+                    </Directory>
+                </VirtualHost>
+              mode: '0644'
+
+          - name: Enable WordPress site and disable default site
+            command: "{{ item }}"
+            loop:
+              - a2ensite wordpress
+              - a2dissite 000-default
+            ignore_errors: yes
+
+          - name: Restart Apache to apply configuration
+            service:
+              name: apache2
+              state: restarted
+
+          - name: Debug - completing WordPress first-run setup
+            debug:
+              msg: "Running wp core install so the site actually serves"
+
+          - name: Check if WordPress setup is already complete
+            command: wp core is-installed --path=/var/www/html --allow-root
+            register: wp_core_installed
+            failed_when: false
+            changed_when: false
+
+          # --url is only a bootstrap seed; the dynamic WP_HOME/WP_SITEURL override it per-request.
+          - name: Complete first-run setup so the app actually SERVES
+            command: >
+              wp core install
+              --path=/var/www/html
+              --url=http://localhost/
+              --title="WordPress Site"
+              --admin_user=admin
+              --admin_password='{{ wp_admin_password.stdout }}'
+              --admin_email=admin@localhost.local
+              --skip-email
+              --allow-root
+            when: wp_core_installed.rc != 0
+
+          - name: Ensure web root ownership
+            file:
+              path: /var/www/html
+              owner: www-data
+              group: www-data
+              recurse: yes
+
+          - name: Debug - writing credentials file
+            debug:
+              msg: "Writing generated credentials to /home/ubuntu/credentials.txt"
+
+          - name: Ensure /home/ubuntu exists
+            file:
+              path: /home/ubuntu
+              state: directory
+              owner: ubuntu
+              group: ubuntu
+              mode: '0755'
+            ignore_errors: yes
+
+          - name: Write credentials file (admin + DB user)
+            copy:
+              dest: /home/ubuntu/credentials.txt
+              content: |
+                WordPress Admin User: admin
+                WordPress Admin Password: {{ wp_admin_password.stdout }}
+                WordPress DB Name: wordpress
+                WordPress DB User: wpuser
+                WordPress DB Password: {{ wp_db_password.stdout }}
+              owner: ubuntu
+              group: ubuntu
+              mode: '0600'
+          # ----- END app-specific tasks -----
+
+          - name: Creating /opt/cloudstack directory
+            ansible.builtin.file:
+              path: /opt/cloudstack
+              state: directory
+
+          - name: Copy cleanup + update helper scripts
+            copy:
+              src: "{{ item.confsrc }}"
+              dest: "{{ item.confdest }}"
+            with_items:
+              - { confsrc: '/usr/local/src/wordpress/opt/cloudstack/wordpress_cleanup.sh', confdest: '/opt/cloudstack/'}
+              - { confsrc: '/usr/local/src/wordpress/opt/cloudstack/wordpress_update.sh', confdest: '/opt/cloudstack/'}
+
+          - name: Wire cleanup script to run on first login
+            lineinfile:
+              path: /root/.bashrc
+              line: "chmod +x /opt/cloudstack/wordpress_cleanup.sh && /opt/cloudstack/wordpress_cleanup.sh"
+              state: present
+        always:
+          - name: Restarting sshd
+            shell: "sed -i 's/ForceCommand echo Please wait until the installation is completed..../#Match User anoncvs/g' /etc/ssh/sshd_config && (systemctl restart ssh 2>/dev/null || systemctl restart sshd)"
