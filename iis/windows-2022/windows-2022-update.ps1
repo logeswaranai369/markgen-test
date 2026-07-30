@@ -6,7 +6,7 @@
 $ErrorActionPreference = 'Stop'
 
 $App = 'windows-2022'
-$InstalledVersion = '10.0.20348 (IIS 10.0, Windows Server 2022)'
+$InstalledVersion = '10.0 (Web-Server role on Windows Server 2022, build 20348)'
 $UpstreamSource = 'windows-feature:Web-Server'
 
 Write-Output "== $App update check =="

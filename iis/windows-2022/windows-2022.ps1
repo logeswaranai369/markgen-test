@@ -28,20 +28,31 @@ if ($missing) {
     Write-Output "IIS features already installed"
 }
 
-# Ensure the default document exists so http://localhost/ returns 200
+# Ensure a default site document exists so http://localhost/ responds.
 New-Item -ItemType Directory -Force -Path 'C:\inetpub\wwwroot' | Out-Null
 if (-not (Test-Path 'C:\inetpub\wwwroot\iisstart.htm') -and -not (Test-Path 'C:\inetpub\wwwroot\index.html')) {
     Set-Content -Path 'C:\inetpub\wwwroot\index.html' -Value '<h1>IIS Windows Server - Deployed by Markgen</h1>'
-    Write-Output "created placeholder index.html"
+    Write-Output "wrote placeholder default document"
 }
 
-# Create an IIS Manager (inetmgr) shortcut on the ALL-USERS (Public) desktop.
-# This runs under cloudbase-init on first boot BEFORE any interactive user has logged on,
-# so C:\Users\Administrator does not exist yet — target the Public desktop, which always exists.
-$inetMgr = 'C:\Windows\System32\inetsrv\InetMgr.exe'
+# Open the HTTP firewall rule (idempotent).
+$fwRule = 'World Wide Web Services (HTTP Traffic-In)'
+$existing = Get-NetFirewallRule -DisplayName $fwRule -ErrorAction SilentlyContinue
+if ($existing) {
+    Enable-NetFirewallRule -DisplayName $fwRule
+    Write-Output "enabled firewall rule: $fwRule"
+} else {
+    New-NetFirewallRule -DisplayName $fwRule -Direction Inbound -Protocol TCP -LocalPort 80 -Action Allow | Out-Null
+    Write-Output "created firewall rule for TCP 80"
+}
+
+# Create an IIS Manager (inetmgr) shortcut on the ALL-USERS (Public) desktop. This runs under
+# cloudbase-init on first boot before any interactive user profile exists, so target the Public
+# desktop (always present) rather than a per-user path.
+$inetMgr = Join-Path $env:windir 'System32\inetsrv\InetMgr.exe'
+$publicDesktop = Join-Path $env:PUBLIC 'Desktop'
+$lnk = Join-Path $publicDesktop 'IIS Manager.lnk'
 if (Test-Path $inetMgr) {
-    $publicDesktop = Join-Path $env:PUBLIC 'Desktop'
-    $lnk = Join-Path $publicDesktop 'IIS Manager.lnk'
     $wsh = New-Object -ComObject WScript.Shell
     $sc = $wsh.CreateShortcut($lnk)
     $sc.TargetPath = $inetMgr
@@ -49,15 +60,15 @@ if (Test-Path $inetMgr) {
     $sc.Save()
     Write-Output "created IIS Manager shortcut on the all-users desktop"
 } else {
-    Write-Output "WARNING: InetMgr.exe not found; management console may be missing"
+    Write-Output "WARNING: InetMgr.exe not found at $inetMgr"
 }
 
-# Ensure the World Wide Web Publishing Service runs now and on every boot
-Set-Service W3SVC -StartupType Automatic
+# Ensure the World Wide Web Publishing Service runs now and on every boot.
 if ((Get-Service W3SVC).Status -ne 'Running') {
     Start-Service W3SVC
 }
-Write-Output "IIS is serving on port 80; W3SVC running and set to Automatic"
+Set-Service W3SVC -StartupType Automatic
+Write-Output "W3SVC is running (Automatic); IIS serving on port 80, IIS Manager installed"
 # ----- END app-specific tasks -----
 
 # --- Wire the first-login cleanup script (self-contained; no extra download) ---
