@@ -6,7 +6,7 @@
 $ErrorActionPreference = 'Stop'
 
 $App = 'windows-2022'
-$InstalledVersion = '10.0 (Web-Server role on Windows Server 2022, build 20348)'
+$InstalledVersion = '10.0.20348 (Windows Server 2022, IIS 10.0)'
 $UpstreamSource = 'windows-feature:Web-Server'
 
 Write-Output "== $App update check =="
@@ -18,4 +18,4 @@ if ([string]::IsNullOrEmpty($UpstreamSource)) {
 }
 
 Write-Output "Upstream source: $UpstreamSource"
-Write-Output "Update check is advisory — review $UpstreamSource for a newer release, then re-deploy."
+Write-Output "Update check is advisory - review $UpstreamSource for a newer release, then re-deploy."

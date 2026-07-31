@@ -1,5 +1,5 @@
 <#
-  INVARIANT — the Windows first-login cleanup script (<app>-cleanup.ps1).
+  INVARIANT - the Windows first-login cleanup script (<app>-cleanup.ps1).
   Windows analog of the Linux <app>_cleanup.sh: on first interactive login it prints the success
   banner + any stored credentials, then wipes install traces (cloudbase-init logs, temp) and
   self-deletes. Run once via a scheduled task (trigger: at-logon) that the install script

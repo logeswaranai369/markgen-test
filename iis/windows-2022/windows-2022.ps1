@@ -1,10 +1,10 @@
 # requires -RunAsAdministrator
 <#
-  INVARIANT scaffold — the Windows marketplace install artifact (<app>.ps1).
+  INVARIANT scaffold - the Windows marketplace install artifact (<app>.ps1).
 
   This is the cloudbase-init user-data script for a Windows guest: cloudbase-init runs it once on
   first boot as SYSTEM. Unlike Linux (bootstrap .sh that stages files + runs an Ansible playbook),
-  the PowerShell IS the install logic — there is no separate playbook. The engine renders the
+  the PowerShell IS the install logic - there is no separate playbook. The engine renders the
   invariant frame (strict errors, stage banners, secret storage, the completion marker) and splices
   in the LLM-generated install steps between the BEGIN/END markers.
 
@@ -28,28 +28,21 @@ if ($missing) {
     Write-Output "IIS features already installed"
 }
 
-# Ensure a default site document exists so http://localhost/ responds.
+# Verify the management console binary is present (name features explicitly; -IncludeManagementTools alone is unreliable)
+$inetMgr = Join-Path $env:SystemRoot 'System32\inetsrv\InetMgr.exe'
+if (-not (Test-Path $inetMgr)) {
+    Write-Output "InetMgr.exe missing after install; forcing Web-Mgmt-Console"
+    Install-WindowsFeature -Name Web-Mgmt-Console -IncludeManagementTools | Out-Null
+}
+
+# Ensure a default document exists so the site serves immediately on port 80
 New-Item -ItemType Directory -Force -Path 'C:\inetpub\wwwroot' | Out-Null
-if (-not (Test-Path 'C:\inetpub\wwwroot\iisstart.htm') -and -not (Test-Path 'C:\inetpub\wwwroot\index.html')) {
-    Set-Content -Path 'C:\inetpub\wwwroot\index.html' -Value '<h1>IIS Windows Server - Deployed by Markgen</h1>'
-    Write-Output "wrote placeholder default document"
+if (-not (Test-Path 'C:\inetpub\wwwroot\index.html') -and -not (Test-Path 'C:\inetpub\wwwroot\iisstart.htm')) {
+    Set-Content -Path 'C:\inetpub\wwwroot\index.html' -Value '<h1>IIS - Deployed by Markgen</h1>'
 }
 
-# Open the HTTP firewall rule (idempotent).
-$fwRule = 'World Wide Web Services (HTTP Traffic-In)'
-$existing = Get-NetFirewallRule -DisplayName $fwRule -ErrorAction SilentlyContinue
-if ($existing) {
-    Enable-NetFirewallRule -DisplayName $fwRule
-    Write-Output "enabled firewall rule: $fwRule"
-} else {
-    New-NetFirewallRule -DisplayName $fwRule -Direction Inbound -Protocol TCP -LocalPort 80 -Action Allow | Out-Null
-    Write-Output "created firewall rule for TCP 80"
-}
-
-# Create an IIS Manager (inetmgr) shortcut on the ALL-USERS (Public) desktop. This runs under
-# cloudbase-init on first boot before any interactive user profile exists, so target the Public
-# desktop (always present) rather than a per-user path.
-$inetMgr = Join-Path $env:windir 'System32\inetsrv\InetMgr.exe'
+# Create an IIS Manager shortcut on the ALL-USERS (Public) desktop - this runs on first boot as
+# cloudbase-init BEFORE any interactive user profile exists, so never target C:\Users\Administrator.
 $publicDesktop = Join-Path $env:PUBLIC 'Desktop'
 $lnk = Join-Path $publicDesktop 'IIS Manager.lnk'
 if (Test-Path $inetMgr) {
@@ -59,16 +52,12 @@ if (Test-Path $inetMgr) {
     $sc.Description = 'Internet Information Services (IIS) Manager'
     $sc.Save()
     Write-Output "created IIS Manager shortcut on the all-users desktop"
-} else {
-    Write-Output "WARNING: InetMgr.exe not found at $inetMgr"
 }
 
-# Ensure the World Wide Web Publishing Service runs now and on every boot.
-if ((Get-Service W3SVC).Status -ne 'Running') {
-    Start-Service W3SVC
-}
+# Ensure the web service runs now and on every boot
+Start-Service W3SVC
 Set-Service W3SVC -StartupType Automatic
-Write-Output "W3SVC is running (Automatic); IIS serving on port 80, IIS Manager installed"
+Write-Output "IIS is serving on port 80; IIS Manager (inetmgr) is installed"
 # ----- END app-specific tasks -----
 
 # --- Wire the first-login cleanup script (self-contained; no extra download) ---
@@ -79,14 +68,21 @@ Write-Output "W3SVC is running (Automatic); IIS serving on port 80, IIS Manager 
 # We use a SCHEDULED TASK triggered at logon (NOT a RunOnce entry). RunOnce ran the script HIDDEN
 # and/or got consumed by a non-interactive post-install logon, so the operator never SAW the banner
 # (seen live). A scheduled task with an interactive-user principal runs powershell IN THE USER'S
-# OWN SESSION with a VISIBLE console window — which is the whole point of the banner. The cleanup
+# OWN SESSION with a VISIBLE console window - which is the whole point of the banner. The cleanup
 # script unregisters this task on its first run, giving run-once semantics.
+#
+# BELT-AND-SUSPENDERS for the "operator logged in DURING the install" race: install can take several
+# minutes as SYSTEM, and an operator often RDPs in before it finishes - so the AtLogOn trigger has
+# no NEW logon to fire against (they were already logged in when the task was created), and the
+# banner never shows until they log off/on. So: register the AtLogOn task (covers future logons) AND,
+# if an interactive session is ALREADY active right now, Start the task immediately so it runs in
+# that live session. Whoever is present after install completes sees the banner either way.
 $cleanupDir = Join-Path $env:ProgramData 'markgen'
 New-Item -ItemType Directory -Force -Path $cleanupDir | Out-Null
 $cleanupPath = Join-Path $cleanupDir 'windows-2022-cleanup.ps1'
 [System.IO.File]::WriteAllBytes(
     $cleanupPath,
-    [System.Convert]::FromBase64String('PCMKICBJTlZBUklBTlQg4oCUIHRoZSBXaW5kb3dzIGZpcnN0LWxvZ2luIGNsZWFudXAgc2NyaXB0ICg8YXBwPi1jbGVhbnVwLnBzMSkuCiAgV2luZG93cyBhbmFsb2cgb2YgdGhlIExpbnV4IDxhcHA+X2NsZWFudXAuc2g6IG9uIGZpcnN0IGludGVyYWN0aXZlIGxvZ2luIGl0IHByaW50cyB0aGUgc3VjY2VzcwogIGJhbm5lciArIGFueSBzdG9yZWQgY3JlZGVudGlhbHMsIHRoZW4gd2lwZXMgaW5zdGFsbCB0cmFjZXMgKGNsb3VkYmFzZS1pbml0IGxvZ3MsIHRlbXApIGFuZAogIHNlbGYtZGVsZXRlcy4gUnVuIG9uY2UgdmlhIGEgc2NoZWR1bGVkIHRhc2sgKHRyaWdnZXI6IGF0LWxvZ29uKSB0aGF0IHRoZSBpbnN0YWxsIHNjcmlwdAogIHJlZ2lzdGVyZWQ7IHRoaXMgc2NyaXB0IHVucmVnaXN0ZXJzIHRoYXQgdGFzayBvbiBpdHMgZmlyc3QgcnVuIGZvciBydW4tb25jZSBzZW1hbnRpY3MuIFJ1bnMgaW4KICB0aGUgdXNlcidzIGludGVyYWN0aXZlIHNlc3Npb24gc28gdGhlIGJhbm5lciB3aW5kb3cgaXMgVklTSUJMRS4KIz4KJEVycm9yQWN0aW9uUHJlZmVyZW5jZSA9ICdTaWxlbnRseUNvbnRpbnVlJwoKV3JpdGUtSG9zdCAiIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIiAtRm9yZWdyb3VuZENvbG9yIFJlZApXcml0ZS1Ib3N0ICIjICAgICAgICAgICAgWW91ciBNYXJrZXRwbGFjZSBBcHAgKElJUykgaGFzIGJlZW4gZGVwbG95ZWQgc3VjY2Vzc2Z1bGx5ISAgICAgICAgICAgICMiIC1Gb3JlZ3JvdW5kQ29sb3IgUmVkCldyaXRlLUhvc3QgIiMgICAgICAgICAgICBDcmVkZW50aWFscyAoaWYgYW55KSBhcmUgc2hvd24gYmVsb3cgYW5kIHN0b3JlZCBvbiBkaXNrLiAgICAgICAgICAgICAgICAgICAgICAgICAgIyIgLUZvcmVncm91bmRDb2xvciBSZWQKV3JpdGUtSG9zdCAiIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIiAtRm9yZWdyb3VuZENvbG9yIFJlZApXcml0ZS1Ib3N0ICIiCldyaXRlLUhvc3QgIlRoaXMgbWVzc2FnZSB3aWxsIGJlIHJlbW92ZWQgYWZ0ZXIgdGhpcyBsb2dpbi4iIC1Gb3JlZ3JvdW5kQ29sb3IgUmVkCldyaXRlLUhvc3QgIiIKCgojIENsZWFudXAgdHJhY2VzIG9mIHRoZSBkZXBsb3ltZW50LgpSZW1vdmUtSXRlbSAtUmVjdXJzZSAtRm9yY2UgIiRlbnY6U3lzdGVtRHJpdmVcQ2xvdWRiYXNlSW5pdFxsb2dcKiIgLUVycm9yQWN0aW9uIFNpbGVudGx5Q29udGludWUKUmVtb3ZlLUl0ZW0gLVJlY3Vyc2UgLUZvcmNlICIkZW52OlRFTVBcKiIgLUVycm9yQWN0aW9uIFNpbGVudGx5Q29udGludWUKQ2xlYXItRXZlbnRMb2cgLUxvZ05hbWUgQXBwbGljYXRpb24sIFN5c3RlbSAtRXJyb3JBY3Rpb24gU2lsZW50bHlDb250aW51ZQoKIyBHaXZlIHRoZSBvcGVyYXRvciB0aW1lIHRvIHJlYWQgdGhlIGJhbm5lciBiZWZvcmUgdGhlIHdpbmRvdyBjbG9zZXMgKGl0IHJ1bnMgaW4gdGhlaXIgc2Vzc2lvbikuCldyaXRlLUhvc3QgIlRoaXMgd2luZG93IHdpbGwgY2xvc2UgaW4gMjAgc2Vjb25kcy4iIC1Gb3JlZ3JvdW5kQ29sb3IgUmVkClN0YXJ0LVNsZWVwIC1TZWNvbmRzIDIwCgojIFVucmVnaXN0ZXIgdGhlIGZpcnN0LWxvZ2luIHNjaGVkdWxlZCB0YXNrIChydW4tb25jZSBzZW1hbnRpY3MpICsgZGVsZXRlIHRoaXMgc2NyaXB0IGl0c2VsZi4KVW5yZWdpc3Rlci1TY2hlZHVsZWRUYXNrIC1UYXNrTmFtZSAnbWFya2dlbi13aW5kb3dzLTIwMjItY2xlYW51cCcgLUNvbmZpcm06JGZhbHNlIC1FcnJvckFjdGlvbiBTaWxlbnRseUNvbnRpbnVlCiMgQWxzbyBjbGVhciBhbnkgbGVnYWN5IFJ1bk9uY2UgZW50cnkgZnJvbSBvbGRlciBpbnN0YWxscyAoaGFybWxlc3MgaWYgYWJzZW50KS4KUmVtb3ZlLUl0ZW1Qcm9wZXJ0eSAtUGF0aCAnSEtMTTpcU09GVFdBUkVcTWljcm9zb2Z0XFdpbmRvd3NcQ3VycmVudFZlcnNpb25cUnVuT25jZScgLU5hbWUgJ3dpbmRvd3MtMjAyMl9jbGVhbnVwJyAtRXJyb3JBY3Rpb24gU2lsZW50bHlDb250aW51ZQpSZW1vdmUtSXRlbSAtRm9yY2UgJFBTQ29tbWFuZFBhdGggLUVycm9yQWN0aW9uIFNpbGVudGx5Q29udGludWUK')
+    [System.Convert]::FromBase64String('PCMKICBJTlZBUklBTlQgLSB0aGUgV2luZG93cyBmaXJzdC1sb2dpbiBjbGVhbnVwIHNjcmlwdCAoPGFwcD4tY2xlYW51cC5wczEpLgogIFdpbmRvd3MgYW5hbG9nIG9mIHRoZSBMaW51eCA8YXBwPl9jbGVhbnVwLnNoOiBvbiBmaXJzdCBpbnRlcmFjdGl2ZSBsb2dpbiBpdCBwcmludHMgdGhlIHN1Y2Nlc3MKICBiYW5uZXIgKyBhbnkgc3RvcmVkIGNyZWRlbnRpYWxzLCB0aGVuIHdpcGVzIGluc3RhbGwgdHJhY2VzIChjbG91ZGJhc2UtaW5pdCBsb2dzLCB0ZW1wKSBhbmQKICBzZWxmLWRlbGV0ZXMuIFJ1biBvbmNlIHZpYSBhIHNjaGVkdWxlZCB0YXNrICh0cmlnZ2VyOiBhdC1sb2dvbikgdGhhdCB0aGUgaW5zdGFsbCBzY3JpcHQKICByZWdpc3RlcmVkOyB0aGlzIHNjcmlwdCB1bnJlZ2lzdGVycyB0aGF0IHRhc2sgb24gaXRzIGZpcnN0IHJ1biBmb3IgcnVuLW9uY2Ugc2VtYW50aWNzLiBSdW5zIGluCiAgdGhlIHVzZXIncyBpbnRlcmFjdGl2ZSBzZXNzaW9uIHNvIHRoZSBiYW5uZXIgd2luZG93IGlzIFZJU0lCTEUuCiM+CiRFcnJvckFjdGlvblByZWZlcmVuY2UgPSAnU2lsZW50bHlDb250aW51ZScKCldyaXRlLUhvc3QgIiMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyIgLUZvcmVncm91bmRDb2xvciBSZWQKV3JpdGUtSG9zdCAiIyAgICAgICAgICAgIFlvdXIgTWFya2V0cGxhY2UgQXBwIChJSVMpIGhhcyBiZWVuIGRlcGxveWVkIHN1Y2Nlc3NmdWxseSEgICAgICAgICAgICAjIiAtRm9yZWdyb3VuZENvbG9yIFJlZApXcml0ZS1Ib3N0ICIjICAgICAgICAgICAgQ3JlZGVudGlhbHMgKGlmIGFueSkgYXJlIHNob3duIGJlbG93IGFuZCBzdG9yZWQgb24gZGlzay4gICAgICAgICAgICAgICAgICAgICAgICAgICMiIC1Gb3JlZ3JvdW5kQ29sb3IgUmVkCldyaXRlLUhvc3QgIiMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyIgLUZvcmVncm91bmRDb2xvciBSZWQKV3JpdGUtSG9zdCAiIgpXcml0ZS1Ib3N0ICJUaGlzIG1lc3NhZ2Ugd2lsbCBiZSByZW1vdmVkIGFmdGVyIHRoaXMgbG9naW4uIiAtRm9yZWdyb3VuZENvbG9yIFJlZApXcml0ZS1Ib3N0ICIiCgoKIyBDbGVhbnVwIHRyYWNlcyBvZiB0aGUgZGVwbG95bWVudC4KUmVtb3ZlLUl0ZW0gLVJlY3Vyc2UgLUZvcmNlICIkZW52OlN5c3RlbURyaXZlXENsb3VkYmFzZUluaXRcbG9nXCoiIC1FcnJvckFjdGlvbiBTaWxlbnRseUNvbnRpbnVlClJlbW92ZS1JdGVtIC1SZWN1cnNlIC1Gb3JjZSAiJGVudjpURU1QXCoiIC1FcnJvckFjdGlvbiBTaWxlbnRseUNvbnRpbnVlCkNsZWFyLUV2ZW50TG9nIC1Mb2dOYW1lIEFwcGxpY2F0aW9uLCBTeXN0ZW0gLUVycm9yQWN0aW9uIFNpbGVudGx5Q29udGludWUKCiMgR2l2ZSB0aGUgb3BlcmF0b3IgdGltZSB0byByZWFkIHRoZSBiYW5uZXIgYmVmb3JlIHRoZSB3aW5kb3cgY2xvc2VzIChpdCBydW5zIGluIHRoZWlyIHNlc3Npb24pLgpXcml0ZS1Ib3N0ICJUaGlzIHdpbmRvdyB3aWxsIGNsb3NlIGluIDIwIHNlY29uZHMuIiAtRm9yZWdyb3VuZENvbG9yIFJlZApTdGFydC1TbGVlcCAtU2Vjb25kcyAyMAoKIyBVbnJlZ2lzdGVyIHRoZSBmaXJzdC1sb2dpbiBzY2hlZHVsZWQgdGFzayAocnVuLW9uY2Ugc2VtYW50aWNzKSArIGRlbGV0ZSB0aGlzIHNjcmlwdCBpdHNlbGYuClVucmVnaXN0ZXItU2NoZWR1bGVkVGFzayAtVGFza05hbWUgJ21hcmtnZW4td2luZG93cy0yMDIyLWNsZWFudXAnIC1Db25maXJtOiRmYWxzZSAtRXJyb3JBY3Rpb24gU2lsZW50bHlDb250aW51ZQojIEFsc28gY2xlYXIgYW55IGxlZ2FjeSBSdW5PbmNlIGVudHJ5IGZyb20gb2xkZXIgaW5zdGFsbHMgKGhhcm1sZXNzIGlmIGFic2VudCkuClJlbW92ZS1JdGVtUHJvcGVydHkgLVBhdGggJ0hLTE06XFNPRlRXQVJFXE1pY3Jvc29mdFxXaW5kb3dzXEN1cnJlbnRWZXJzaW9uXFJ1bk9uY2UnIC1OYW1lICd3aW5kb3dzLTIwMjJfY2xlYW51cCcgLUVycm9yQWN0aW9uIFNpbGVudGx5Q29udGludWUKUmVtb3ZlLUl0ZW0gLUZvcmNlICRQU0NvbW1hbmRQYXRoIC1FcnJvckFjdGlvbiBTaWxlbnRseUNvbnRpbnVlCg==')
 )
 # The task name MUST match the name the cleanup script unregisters (markgen-windows-2022-cleanup).
 $taskName = 'markgen-windows-2022-cleanup'
@@ -100,6 +96,12 @@ $taskSettings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopI
 Register-ScheduledTask -TaskName $taskName -Action $taskAction -Trigger $taskTrigger `
     -Principal $taskPrincipal -Settings $taskSettings -Force | Out-Null
 Write-Stage "install: registered first-login cleanup task ($taskName)"
+# If someone is ALREADY logged in (they beat the install), fire it now in their live session.
+$activeSession = (& query.exe session 2>$null | Select-String -Pattern '\bActive\b')
+if ($activeSession) {
+    Start-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+    Write-Stage "install: an interactive session is active - started cleanup banner now"
+}
 
 Write-Stage "install: complete"
 # Completion sentinel the test runner waits for (rc must be 0). Keep this the LAST line.
