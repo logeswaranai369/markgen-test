@@ -17,6 +17,31 @@ function Write-Stage($msg) { Write-Output "[markgen] $msg" }
 
 Write-Stage "install: IIS on win2022"
 
+# --- First-login "install in progress" notice (shown ONLY while installing) ---
+# The install runs as SYSTEM on first boot and can take several minutes on a slow VM. An operator
+# who RDPs in during that window would otherwise see a bare desktop and think it's broken (seen
+# live). Register a scheduled task NOW (before the long install work) that shows a "still installing,
+# please wait" banner in the interactive session; if a session is already active, fire it now. The
+# END of this script unregisters it, so it only appears while the install is genuinely running.
+$notifyDir = Join-Path $env:ProgramData 'markgen'
+New-Item -ItemType Directory -Force -Path $notifyDir | Out-Null
+$notifyPath = Join-Path $notifyDir 'windows-2022-installing.ps1'
+[System.IO.File]::WriteAllBytes(
+    $notifyPath,
+    [System.Convert]::FromBase64String('PCMKICBHZW5lcmF0ZWQgZmlyc3QtbG9naW4gImluc3RhbGwgaW4gcHJvZ3Jlc3MiIG5vdGljZSAod2luZG93cy0yMDIyLWluc3RhbGxpbmcucHMxKS4KICBTaG93biB0byBhbiBvcGVyYXRvciB3aG8gUkRQcyBpbiBXSElMRSB0aGUgbWFya2V0cGxhY2UgaW5zdGFsbCBpcyBzdGlsbCBydW5uaW5nIChpdCBydW5zIGFzIFNZU1RFTQogIG9uIGZpcnN0IGJvb3QgYW5kIGNhbiB0YWtlIHNldmVyYWwgbWludXRlcyBvbiBhIHNsb3cgVk0pLiBUaGUgaW5zdGFsbCBzY3JpcHQgcmVnaXN0ZXJzIGEgc2NoZWR1bGVkCiAgdGFzayAodHJpZ2dlcjogYXQtbG9nb24sIGludGVyYWN0aXZlKSB0aGF0IHJ1bnMgVEhJUywgc28gYSBsb2dpbiBkdXJpbmcgaW5zdGFsbCBzZWVzIGEgY2xlYXIKICAicGxlYXNlIHdhaXQiIG1lc3NhZ2UgaW5zdGVhZCBvZiBhIGJhcmUgZGVza3RvcCB0aGF0IGxvb2tzIGJyb2tlbi4gVGhlIGluc3RhbGwgc2NyaXB0IFVOUkVHSVNURVJTCiAgdGhpcyB0YXNrIHRoZSBtb21lbnQgaXQgY29tcGxldGVzLCBzbyBpdCBvbmx5IGFwcGVhcnMgd2hpbGUgZ2VudWluZWx5IGluc3RhbGxpbmcuCiM+CiRFcnJvckFjdGlvblByZWZlcmVuY2UgPSAnU2lsZW50bHlDb250aW51ZScKCldyaXRlLUhvc3QgIiMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyIgLUZvcmVncm91bmRDb2xvciBZZWxsb3cKV3JpdGUtSG9zdCAiIyAgICAgWW91ciBNYXJrZXRwbGFjZSBBcHAgKElJUykgaXMgU1RJTEwgSU5TVEFMTElORyAtIHBsZWFzZSB3YWl0LiAgICAgICAgICAgICAgICAjIiAtRm9yZWdyb3VuZENvbG9yIFllbGxvdwpXcml0ZS1Ib3N0ICIjICAgICBUaGlzIHJ1bnMgaW4gdGhlIGJhY2tncm91bmQgKGEgZmV3IG1pbnV0ZXMpLiBEbyBub3QgcmVzdGFydCB0aGUgVk0uICAgICAgICAgICAgICAgICAgICAgICAjIiAtRm9yZWdyb3VuZENvbG9yIFllbGxvdwpXcml0ZS1Ib3N0ICIjICAgICBBICdkZXBsb3llZCBzdWNjZXNzZnVsbHknIG1lc3NhZ2Ugd2lsbCBhcHBlYXIgYXV0b21hdGljYWxseSB3aGVuIGl0IGZpbmlzaGVzLiAgICAgICAgICAgICMiIC1Gb3JlZ3JvdW5kQ29sb3IgWWVsbG93CldyaXRlLUhvc3QgIiMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyIgLUZvcmVncm91bmRDb2xvciBZZWxsb3cKV3JpdGUtSG9zdCAiIgpXcml0ZS1Ib3N0ICJUaGlzIHdpbmRvdyB3aWxsIGNsb3NlIGluIDMwIHNlY29uZHMuIElmIHRoZSBhcHAgc3RpbGwgaXNuJ3QgcmVhZHksIGxvZyBvZmYgYW5kIGJhY2sgb24uIiAtRm9yZWdyb3VuZENvbG9yIFllbGxvdwpTdGFydC1TbGVlcCAtU2Vjb25kcyAzMAo=')
+)
+$notifyTask = 'markgen-windows-2022-installing'
+$notifyAction = New-ScheduledTaskAction -Execute 'powershell.exe' `
+    -Argument ('-NoProfile -ExecutionPolicy Bypass -File "' + $notifyPath + '"')
+$notifyPrincipal = New-ScheduledTaskPrincipal -GroupId 'S-1-5-32-545' -RunLevel Highest
+Register-ScheduledTask -TaskName $notifyTask -Action $notifyAction `
+    -Trigger (New-ScheduledTaskTrigger -AtLogOn) -Principal $notifyPrincipal `
+    -Settings (New-ScheduledTaskSettingsSet) -Force | Out-Null
+if (& query.exe session 2>$null | Select-String -Pattern '\bActive\b') {
+    Start-ScheduledTask -TaskName $notifyTask -ErrorAction SilentlyContinue
+}
+Write-Stage "install: registered 'installing' notice ($notifyTask)"
+
 
 # ----- BEGIN app-specific tasks (LLM-generated from AppSpec) -----
 $needed = 'Web-Server', 'Web-Mgmt-Console', 'Web-Mgmt-Tools'
@@ -28,35 +53,49 @@ if ($missing) {
     Write-Output "IIS features already installed"
 }
 
-# Verify the management console binary is present (name features explicitly; -IncludeManagementTools alone is unreliable)
-$inetMgr = Join-Path $env:SystemRoot 'System32\inetsrv\InetMgr.exe'
+# Verify the management console is present
+$inetMgr = 'C:\Windows\System32\inetsrv\InetMgr.exe'
 if (-not (Test-Path $inetMgr)) {
     Write-Output "InetMgr.exe missing after install; forcing Web-Mgmt-Console"
-    Install-WindowsFeature -Name Web-Mgmt-Console -IncludeManagementTools | Out-Null
+    Install-WindowsFeature -Name Web-Mgmt-Console | Out-Null
 }
 
-# Ensure a default document exists so the site serves immediately on port 80
+# Ensure default site root and a welcome page exist
 New-Item -ItemType Directory -Force -Path 'C:\inetpub\wwwroot' | Out-Null
-if (-not (Test-Path 'C:\inetpub\wwwroot\index.html') -and -not (Test-Path 'C:\inetpub\wwwroot\iisstart.htm')) {
-    Set-Content -Path 'C:\inetpub\wwwroot\index.html' -Value '<h1>IIS - Deployed by Markgen</h1>'
+if (-not (Test-Path 'C:\inetpub\wwwroot\iisstart.htm') -and -not (Test-Path 'C:\inetpub\wwwroot\index.html')) {
+    Set-Content -Path 'C:\inetpub\wwwroot\index.html' -Value '<h1>IIS Windows Server - Deployed by Markgen</h1>'
+    Write-Output "created default landing page"
 }
 
-# Create an IIS Manager shortcut on the ALL-USERS (Public) desktop - this runs on first boot as
-# cloudbase-init BEFORE any interactive user profile exists, so never target C:\Users\Administrator.
+# Create an IIS Manager shortcut on the ALL-USERS (Public) desktop.
+# Runs under cloudbase-init on first boot before any interactive user exists,
+# so C:\Users\Administrator is absent - always use the Public desktop.
 $publicDesktop = Join-Path $env:PUBLIC 'Desktop'
 $lnk = Join-Path $publicDesktop 'IIS Manager.lnk'
 if (Test-Path $inetMgr) {
     $wsh = New-Object -ComObject WScript.Shell
     $sc = $wsh.CreateShortcut($lnk)
     $sc.TargetPath = $inetMgr
+    $sc.IconLocation = "$inetMgr,0"
     $sc.Description = 'Internet Information Services (IIS) Manager'
     $sc.Save()
     Write-Output "created IIS Manager shortcut on the all-users desktop"
+} else {
+    Write-Output "WARNING: InetMgr.exe not found; skipping shortcut"
+}
+
+# Ensure the HTTP firewall rule is enabled
+$rule = Get-NetFirewallRule -DisplayName 'World Wide Web Services (HTTP Traffic-In)' -ErrorAction SilentlyContinue
+if ($rule) {
+    Enable-NetFirewallRule -DisplayName 'World Wide Web Services (HTTP Traffic-In)' | Out-Null
+    Write-Output "enabled HTTP firewall rule (TCP 80)"
 }
 
 # Ensure the web service runs now and on every boot
-Start-Service W3SVC
 Set-Service W3SVC -StartupType Automatic
+if ((Get-Service W3SVC).Status -ne 'Running') {
+    Start-Service W3SVC
+}
 Write-Output "IIS is serving on port 80; IIS Manager (inetmgr) is installed"
 # ----- END app-specific tasks -----
 
@@ -102,6 +141,12 @@ if ($activeSession) {
     Start-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
     Write-Stage "install: an interactive session is active - started cleanup banner now"
 }
+
+# Install is done - remove the "installing" notice task (and stop it if it's showing) so the next
+# login sees the "deployed successfully" cleanup banner, not the "still installing" one.
+Stop-ScheduledTask -TaskName 'markgen-windows-2022-installing' -ErrorAction SilentlyContinue
+Unregister-ScheduledTask -TaskName 'markgen-windows-2022-installing' -Confirm:$false -ErrorAction SilentlyContinue
+Remove-Item -Force (Join-Path $env:ProgramData 'markgen\windows-2022-installing.ps1') -ErrorAction SilentlyContinue
 
 Write-Stage "install: complete"
 # Completion sentinel the test runner waits for (rc must be 0). Keep this the LAST line.
