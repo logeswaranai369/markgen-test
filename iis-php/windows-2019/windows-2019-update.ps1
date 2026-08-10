@@ -7,7 +7,7 @@ $ErrorActionPreference = 'Stop'
 
 $App = 'windows-2019'
 $InstalledVersion = 'PHP 8.5.9'
-$UpstreamSource = 'https://windows.php.net/downloads/releases/php-8.5.9-nts-Win32-vs17-x64.zip'
+$UpstreamSource = 'windows.php.net'
 
 Write-Output "== $App update check =="
 Write-Output "Installed version: $InstalledVersion"

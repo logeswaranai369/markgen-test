@@ -29,7 +29,7 @@ function Set-Status($msg) { try { Set-Content -Path $mgStatusFile -Value $msg -E
 function Write-Stage($msg) { Write-Output "[markgen] $msg"; Set-Status $msg }
 
 Set-Status 'Starting install...'
-Write-Stage "install: Windows IIS with PHP (FastCGI) on win2019"
+Write-Stage "install: Windows IIS + PHP on win2019"
 
 # --- First-login "install in progress" notice (shown ONLY while installing) ---
 # The install runs as SYSTEM on first boot and can take several minutes on a slow VM. An operator
@@ -42,7 +42,7 @@ New-Item -ItemType Directory -Force -Path $notifyDir | Out-Null
 $notifyPath = Join-Path $notifyDir 'windows-2019-installing.ps1'
 [System.IO.File]::WriteAllBytes(
     $notifyPath,
-    [System.Convert]::FromBase64String('PCMKICBHZW5lcmF0ZWQgZmlyc3QtbG9naW4gImluc3RhbGwgaW4gcHJvZ3Jlc3MiIExJVkUgU1RBVFVTIHdpbmRvdyAod2luZG93cy0yMDE5LWluc3RhbGxpbmcucHMxKS4KICBTaG93biB0byBhbiBvcGVyYXRvciB3aG8gUkRQcyBpbiBXSElMRSB0aGUgbWFya2V0cGxhY2UgaW5zdGFsbCBpcyBzdGlsbCBydW5uaW5nIChpdCBydW5zIGFzIFNZU1RFTQogIG9uIGZpcnN0IGJvb3QgYW5kIGNhbiB0YWtlIHNldmVyYWwgbWludXRlcyBvbiBhIHNsb3cgVk0pLiBUaGUgaW5zdGFsbCBzY3JpcHQgcmVnaXN0ZXJzIGEgc2NoZWR1bGVkCiAgdGFzayAodHJpZ2dlcjogYXQtbG9nb24sIGludGVyYWN0aXZlKSB0aGF0IHJ1bnMgVEhJUy4KCiAgVGhlIGluc3RhbGwgKFNZU1RFTSkgYW5kIHRoaXMgd2luZG93IChpbnRlcmFjdGl2ZSB1c2VyKSBhcmUgc2VwYXJhdGUgcHJvY2Vzc2VzLCBzbyB0aGlzIGNhbid0IHJlYWQKICB0aGUgaW5zdGFsbCdzIGxpdmUgc3Rkb3V0LiBJbnN0ZWFkIHRoZSBpbnN0YWxsIHB1Ymxpc2hlcyBicmVhZGNydW1iIGZpbGVzIHVuZGVyIEM6XFByb2dyYW1EYXRhXAogIG1hcmtnZW5cIHRoYXQgdGhpcyB3aW5kb3cgUE9MTFMgZXZlcnkgZmV3IHNlY29uZHM6IHRoZSBjdXJyZW50IHN0YWdlICg8YXBwPi1zdGF0dXMudHh0KSwgdGhlIHN0YXJ0CiAgdGltZSAoPGFwcD4taW5zdGFsbC5zdGFydCksIGFuZCBhIGNvbXBsZXRpb24gZmxhZyAoPGFwcD4taW5zdGFsbC5kb25lKS4gVGhpcyB3aW5kb3cgc3RheXMgb3BlbiBhbmQKICByZWZyZXNoZXMgYW4gZWxhcHNlZCB0aW1lciArIGN1cnJlbnQgc3RhZ2UgdW50aWwgaXQgc2VlcyB0aGUgLmRvbmUgZmxhZywgdGhlbiBzaG93cyBhIGJyaWVmCiAgImNvbXBsZXRlIiBsaW5lIGFuZCBleGl0cyAtIHNvIHRoZSBvcGVyYXRvciBhbHdheXMga25vd3MgaXQncyBwcm9ncmVzc2luZyBhbmQgaG93IGxvbmcgaXQncyB0YWtlbi4KIz4KJEVycm9yQWN0aW9uUHJlZmVyZW5jZSA9ICdTaWxlbnRseUNvbnRpbnVlJwoKJGRpciAgICAgICA9IEpvaW4tUGF0aCAkZW52OlByb2dyYW1EYXRhICdtYXJrZ2VuJwokc3RhdHVzRmlsZSA9IEpvaW4tUGF0aCAkZGlyICd3aW5kb3dzLTIwMTktc3RhdHVzLnR4dCcKJHN0YXJ0RmlsZSAgPSBKb2luLVBhdGggJGRpciAnd2luZG93cy0yMDE5LWluc3RhbGwuc3RhcnQnCiRkb25lRmlsZSAgID0gSm9pbi1QYXRoICRkaXIgJ3dpbmRvd3MtMjAxOS1pbnN0YWxsLmRvbmUnCgojIEFuY2hvciBlbGFwc2VkIHRvIHRoZSBpbnN0YWxsJ3MgcmVjb3JkZWQgc3RhcnQgdGltZSBpZiBwcmVzZW50IChzbyB0aGUgdGltZXIgcmVmbGVjdHMgdGhlIHJlYWwKIyBpbnN0YWxsIGFnZSBldmVuIGlmIHRoZSBvcGVyYXRvciBsb2dnZWQgaW4gbGF0ZSksIGVsc2UgdG8gbm93Lgp0cnkgeyAkc3RhcnQgPSBbZGF0ZXRpbWVdOjpQYXJzZSgoR2V0LUNvbnRlbnQgLVJhdyAkc3RhcnRGaWxlKSkgfSBjYXRjaCB7ICRzdGFydCA9IEdldC1EYXRlIH0KCiRiYXIgPSAnIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMnCiMgUG9sbCB1bnRpbCB0aGUgaW5zdGFsbCBzaWduYWxzIGRvbmUsIHdpdGggYSBoYXJkIHNhZmV0eSBjYXAgc28gdGhpcyBjYW4gbmV2ZXIgc3BpbiBmb3JldmVyLgpmb3IgKCRpID0gMDsgJGkgLWx0IDkwMDsgJGkrKykgewogICAgJGRvbmUgPSBUZXN0LVBhdGggJGRvbmVGaWxlCiAgICAkc3RhZ2UgPSBpZiAoVGVzdC1QYXRoICRzdGF0dXNGaWxlKSB7IChHZXQtQ29udGVudCAtUmF3ICRzdGF0dXNGaWxlKS5UcmltKCkgfSBlbHNlIHsgJ1ByZXBhcmluZy4uLicgfQogICAgJGVsYXBzZWQgPSAoR2V0LURhdGUpIC0gJHN0YXJ0CiAgICAkbW0gPSBbaW50XSRlbGFwc2VkLlRvdGFsTWludXRlcwogICAgJHNzID0gJGVsYXBzZWQuU2Vjb25kcwoKICAgIENsZWFyLUhvc3QKICAgIFdyaXRlLUhvc3QgJGJhciAtRm9yZWdyb3VuZENvbG9yIFllbGxvdwogICAgV3JpdGUtSG9zdCAoIiMgICBZb3VyIE1hcmtldHBsYWNlIEFwcCAoV2luZG93cyBJSVMgd2l0aCBQSFAgKEZhc3RDR0kpKSBpcyBJTlNUQUxMSU5HIC0gcGxlYXNlIHdhaXQuIikgLUZvcmVncm91bmRDb2xvciBZZWxsb3cKICAgIFdyaXRlLUhvc3QgJGJhciAtRm9yZWdyb3VuZENvbG9yIFllbGxvdwogICAgV3JpdGUtSG9zdCAiIgogICAgaWYgKCRkb25lKSB7CiAgICAgICAgV3JpdGUtSG9zdCAoIiAgU3RhdHVzIDogSW5zdGFsbCBjb21wbGV0ZS4iKSAtRm9yZWdyb3VuZENvbG9yIEdyZWVuCiAgICAgICAgV3JpdGUtSG9zdCAoIiAgRWxhcHNlZDogezB9bSB7MTowMH1zIiAtZiAkbW0sICRzcykgLUZvcmVncm91bmRDb2xvciBHcmVlbgogICAgICAgIFdyaXRlLUhvc3QgIiIKICAgICAgICBXcml0ZS1Ib3N0ICIgIFRoZSBhcHAgaXMgcmVhZHkuIFRoaXMgd2luZG93IHdpbGwgY2xvc2Ugbm93OyBhICdkZXBsb3llZCBzdWNjZXNzZnVsbHknIiAtRm9yZWdyb3VuZENvbG9yIEdyZWVuCiAgICAgICAgV3JpdGUtSG9zdCAiICBtZXNzYWdlIHdpdGggYW55IGNyZWRlbnRpYWxzIGZvbGxvd3MuIiAtRm9yZWdyb3VuZENvbG9yIEdyZWVuCiAgICAgICAgU3RhcnQtU2xlZXAgLVNlY29uZHMgNAogICAgICAgIGJyZWFrCiAgICB9CiAgICBXcml0ZS1Ib3N0ICgiICBTdGF0dXMgOiB7MH0iIC1mICRzdGFnZSkgLUZvcmVncm91bmRDb2xvciBZZWxsb3cKICAgIFdyaXRlLUhvc3QgKCIgIEVsYXBzZWQ6IHswfW0gezE6MDB9cyIgLWYgJG1tLCAkc3MpIC1Gb3JlZ3JvdW5kQ29sb3IgWWVsbG93CiAgICBXcml0ZS1Ib3N0ICIiCiAgICBXcml0ZS1Ib3N0ICIgIEluc3RhbGxpbmcgaW4gdGhlIGJhY2tncm91bmQgKGEgZmV3IG1pbnV0ZXMgb24gYSBmcmVzaCBWTSkuIERvIE5PVCByZXN0YXJ0IHRoZSBWTS4iIC1Gb3JlZ3JvdW5kQ29sb3IgWWVsbG93CiAgICBXcml0ZS1Ib3N0ICIgIFRoaXMgd2luZG93IHVwZGF0ZXMgZXZlcnkgZmV3IHNlY29uZHMgYW5kIGNsb3NlcyBhdXRvbWF0aWNhbGx5IHdoZW4gdGhlIGFwcCBpcyByZWFkeS4iIC1Gb3JlZ3JvdW5kQ29sb3IgWWVsbG93CiAgICBTdGFydC1TbGVlcCAtU2Vjb25kcyAzCn0K')
+    [System.Convert]::FromBase64String('PCMKICBHZW5lcmF0ZWQgZmlyc3QtbG9naW4gImluc3RhbGwgaW4gcHJvZ3Jlc3MiIExJVkUgU1RBVFVTIHdpbmRvdyAod2luZG93cy0yMDE5LWluc3RhbGxpbmcucHMxKS4KICBTaG93biB0byBhbiBvcGVyYXRvciB3aG8gUkRQcyBpbiBXSElMRSB0aGUgbWFya2V0cGxhY2UgaW5zdGFsbCBpcyBzdGlsbCBydW5uaW5nIChpdCBydW5zIGFzIFNZU1RFTQogIG9uIGZpcnN0IGJvb3QgYW5kIGNhbiB0YWtlIHNldmVyYWwgbWludXRlcyBvbiBhIHNsb3cgVk0pLiBUaGUgaW5zdGFsbCBzY3JpcHQgcmVnaXN0ZXJzIGEgc2NoZWR1bGVkCiAgdGFzayAodHJpZ2dlcjogYXQtbG9nb24sIGludGVyYWN0aXZlKSB0aGF0IHJ1bnMgVEhJUy4KCiAgVGhlIGluc3RhbGwgKFNZU1RFTSkgYW5kIHRoaXMgd2luZG93IChpbnRlcmFjdGl2ZSB1c2VyKSBhcmUgc2VwYXJhdGUgcHJvY2Vzc2VzLCBzbyB0aGlzIGNhbid0IHJlYWQKICB0aGUgaW5zdGFsbCdzIGxpdmUgc3Rkb3V0LiBJbnN0ZWFkIHRoZSBpbnN0YWxsIHB1Ymxpc2hlcyBicmVhZGNydW1iIGZpbGVzIHVuZGVyIEM6XFByb2dyYW1EYXRhXAogIG1hcmtnZW5cIHRoYXQgdGhpcyB3aW5kb3cgUE9MTFMgZXZlcnkgZmV3IHNlY29uZHM6IHRoZSBjdXJyZW50IHN0YWdlICg8YXBwPi1zdGF0dXMudHh0KSwgdGhlIHN0YXJ0CiAgdGltZSAoPGFwcD4taW5zdGFsbC5zdGFydCksIGFuZCBhIGNvbXBsZXRpb24gZmxhZyAoPGFwcD4taW5zdGFsbC5kb25lKS4gVGhpcyB3aW5kb3cgc3RheXMgb3BlbiBhbmQKICByZWZyZXNoZXMgYW4gZWxhcHNlZCB0aW1lciArIGN1cnJlbnQgc3RhZ2UgdW50aWwgaXQgc2VlcyB0aGUgLmRvbmUgZmxhZywgdGhlbiBzaG93cyBhIGJyaWVmCiAgImNvbXBsZXRlIiBsaW5lIGFuZCBleGl0cyAtIHNvIHRoZSBvcGVyYXRvciBhbHdheXMga25vd3MgaXQncyBwcm9ncmVzc2luZyBhbmQgaG93IGxvbmcgaXQncyB0YWtlbi4KIz4KJEVycm9yQWN0aW9uUHJlZmVyZW5jZSA9ICdTaWxlbnRseUNvbnRpbnVlJwoKJGRpciAgICAgICA9IEpvaW4tUGF0aCAkZW52OlByb2dyYW1EYXRhICdtYXJrZ2VuJwokc3RhdHVzRmlsZSA9IEpvaW4tUGF0aCAkZGlyICd3aW5kb3dzLTIwMTktc3RhdHVzLnR4dCcKJHN0YXJ0RmlsZSAgPSBKb2luLVBhdGggJGRpciAnd2luZG93cy0yMDE5LWluc3RhbGwuc3RhcnQnCiRkb25lRmlsZSAgID0gSm9pbi1QYXRoICRkaXIgJ3dpbmRvd3MtMjAxOS1pbnN0YWxsLmRvbmUnCgojIEFuY2hvciBlbGFwc2VkIHRvIHRoZSBpbnN0YWxsJ3MgcmVjb3JkZWQgc3RhcnQgdGltZSBpZiBwcmVzZW50IChzbyB0aGUgdGltZXIgcmVmbGVjdHMgdGhlIHJlYWwKIyBpbnN0YWxsIGFnZSBldmVuIGlmIHRoZSBvcGVyYXRvciBsb2dnZWQgaW4gbGF0ZSksIGVsc2UgdG8gbm93Lgp0cnkgeyAkc3RhcnQgPSBbZGF0ZXRpbWVdOjpQYXJzZSgoR2V0LUNvbnRlbnQgLVJhdyAkc3RhcnRGaWxlKSkgfSBjYXRjaCB7ICRzdGFydCA9IEdldC1EYXRlIH0KCiRiYXIgPSAnIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMnCiMgUG9sbCB1bnRpbCB0aGUgaW5zdGFsbCBzaWduYWxzIGRvbmUsIHdpdGggYSBoYXJkIHNhZmV0eSBjYXAgc28gdGhpcyBjYW4gbmV2ZXIgc3BpbiBmb3JldmVyLgpmb3IgKCRpID0gMDsgJGkgLWx0IDkwMDsgJGkrKykgewogICAgJGRvbmUgPSBUZXN0LVBhdGggJGRvbmVGaWxlCiAgICAkc3RhZ2UgPSBpZiAoVGVzdC1QYXRoICRzdGF0dXNGaWxlKSB7IChHZXQtQ29udGVudCAtUmF3ICRzdGF0dXNGaWxlKS5UcmltKCkgfSBlbHNlIHsgJ1ByZXBhcmluZy4uLicgfQogICAgJGVsYXBzZWQgPSAoR2V0LURhdGUpIC0gJHN0YXJ0CiAgICAkbW0gPSBbaW50XSRlbGFwc2VkLlRvdGFsTWludXRlcwogICAgJHNzID0gJGVsYXBzZWQuU2Vjb25kcwoKICAgIENsZWFyLUhvc3QKICAgIFdyaXRlLUhvc3QgJGJhciAtRm9yZWdyb3VuZENvbG9yIFllbGxvdwogICAgV3JpdGUtSG9zdCAoIiMgICBZb3VyIE1hcmtldHBsYWNlIEFwcCAoV2luZG93cyBJSVMgKyBQSFApIGlzIElOU1RBTExJTkcgLSBwbGVhc2Ugd2FpdC4iKSAtRm9yZWdyb3VuZENvbG9yIFllbGxvdwogICAgV3JpdGUtSG9zdCAkYmFyIC1Gb3JlZ3JvdW5kQ29sb3IgWWVsbG93CiAgICBXcml0ZS1Ib3N0ICIiCiAgICBpZiAoJGRvbmUpIHsKICAgICAgICBXcml0ZS1Ib3N0ICgiICBTdGF0dXMgOiBJbnN0YWxsIGNvbXBsZXRlLiIpIC1Gb3JlZ3JvdW5kQ29sb3IgR3JlZW4KICAgICAgICBXcml0ZS1Ib3N0ICgiICBFbGFwc2VkOiB7MH1tIHsxOjAwfXMiIC1mICRtbSwgJHNzKSAtRm9yZWdyb3VuZENvbG9yIEdyZWVuCiAgICAgICAgV3JpdGUtSG9zdCAiIgogICAgICAgIFdyaXRlLUhvc3QgIiAgVGhlIGFwcCBpcyByZWFkeS4gVGhpcyB3aW5kb3cgd2lsbCBjbG9zZSBub3c7IGEgJ2RlcGxveWVkIHN1Y2Nlc3NmdWxseSciIC1Gb3JlZ3JvdW5kQ29sb3IgR3JlZW4KICAgICAgICBXcml0ZS1Ib3N0ICIgIG1lc3NhZ2Ugd2l0aCBhbnkgY3JlZGVudGlhbHMgZm9sbG93cy4iIC1Gb3JlZ3JvdW5kQ29sb3IgR3JlZW4KICAgICAgICBTdGFydC1TbGVlcCAtU2Vjb25kcyA0CiAgICAgICAgYnJlYWsKICAgIH0KICAgIFdyaXRlLUhvc3QgKCIgIFN0YXR1cyA6IHswfSIgLWYgJHN0YWdlKSAtRm9yZWdyb3VuZENvbG9yIFllbGxvdwogICAgV3JpdGUtSG9zdCAoIiAgRWxhcHNlZDogezB9bSB7MTowMH1zIiAtZiAkbW0sICRzcykgLUZvcmVncm91bmRDb2xvciBZZWxsb3cKICAgIFdyaXRlLUhvc3QgIiIKICAgIFdyaXRlLUhvc3QgIiAgSW5zdGFsbGluZyBpbiB0aGUgYmFja2dyb3VuZCAoYSBmZXcgbWludXRlcyBvbiBhIGZyZXNoIFZNKS4gRG8gTk9UIHJlc3RhcnQgdGhlIFZNLiIgLUZvcmVncm91bmRDb2xvciBZZWxsb3cKICAgIFdyaXRlLUhvc3QgIiAgVGhpcyB3aW5kb3cgdXBkYXRlcyBldmVyeSBmZXcgc2Vjb25kcyBhbmQgY2xvc2VzIGF1dG9tYXRpY2FsbHkgd2hlbiB0aGUgYXBwIGlzIHJlYWR5LiIgLUZvcmVncm91bmRDb2xvciBZZWxsb3cKICAgIFN0YXJ0LVNsZWVwIC1TZWNvbmRzIDMKfQo=')
 )
 $notifyTask = 'markgen-windows-2019-installing'
 $notifyAction = New-ScheduledTaskAction -Execute 'powershell.exe' `
@@ -61,11 +61,10 @@ Write-Stage "install: registered 'installing' notice ($notifyTask)"
 # begins. The LLM install steps below use Write-Output (not Write-Stage), so they don't update the
 # status breadcrumb - without this the notice would sit on the internal "registered 'installing'
 # notice" wiring line for the whole install. This gives the operator a meaningful stage instead.
-Set-Status 'Installing Windows IIS with PHP (FastCGI) and dependencies (this can take a few minutes)...'
+Set-Status 'Installing Windows IIS + PHP and dependencies (this can take a few minutes)...'
 
 # ----- BEGIN app-specific tasks (LLM-generated from AppSpec) -----
-# --- Install IIS role, management console, and CGI (FastCGI) support ---
-$needed = 'Web-Server', 'Web-Mgmt-Console', 'Web-Mgmt-Tools', 'Web-CGI'
+$needed = 'Web-Server', 'Web-CGI', 'Web-Mgmt-Console', 'Web-Mgmt-Tools'
 $missing = $needed | Where-Object { -not (Get-WindowsFeature -Name $_).Installed }
 if ($missing) {
     Write-Output "installing IIS features: $($missing -join ', ')"
@@ -74,106 +73,88 @@ if ($missing) {
     Write-Output "IIS features already installed"
 }
 
-# --- Install the current Visual C++ 2015-2022 x64 redistributable (required by vs17 PHP builds) ---
-# Run unconditionally: WS2019/2022 ship an OLDER vcruntime140.dll, so a presence check would wrongly
-# skip the upgrade and the newer PHP binary would fail to load (HTTP 500 / FastCGI exited). The
-# redist installer is idempotent - it upgrades a stale runtime and no-ops when already current.
-$vcTmp = Join-Path $env:TEMP 'vc_redist.x64.exe'
-Write-Output "downloading Visual C++ 2015-2022 x64 redistributable"
-Invoke-WebRequest -Uri 'https://aka.ms/vs/17/release/vc_redist.x64.exe' -OutFile $vcTmp -UseBasicParsing
-Write-Output "installing VC++ redistributable"
-Start-Process -FilePath $vcTmp -ArgumentList '/install', '/quiet', '/norestart' -Wait
-Remove-Item $vcTmp -Force -ErrorAction SilentlyContinue
+# VC++ 2015-2022 x64 redistributable is MANDATORY for the PHP vs17 build.
+# Run it unconditionally - the installer is idempotent and upgrades any stale runtime.
+Write-Output "installing Visual C++ 2015-2022 x64 redistributable"
+$vcPath = Join-Path $env:TEMP 'vc_redist.x64.exe'
+Invoke-WebRequest -Uri 'https://aka.ms/vs/17/release/vc_redist.x64.exe' -OutFile $vcPath -UseBasicParsing
+Start-Process -FilePath $vcPath -ArgumentList '/install', '/quiet', '/norestart' -Wait
+Write-Output "VC++ redistributable installed"
 
-# --- Download and extract PHP 8.5.9 (non-thread-safe, vs17 x64) to C:\PHP ---
+# Download and extract PHP 8.5.9 NTS vs17 x64
 $phpDir = 'C:\PHP'
-$phpCgi = Join-Path $phpDir 'php-cgi.exe'
-if (-not (Test-Path $phpCgi)) {
-    $phpZip = Join-Path $env:TEMP 'php-8.5.9.zip'
-    Write-Output "downloading PHP 8.5.9"
-    Invoke-WebRequest -Uri 'https://windows.php.net/downloads/releases/php-8.5.9-nts-Win32-vs17-x64.zip' -OutFile $phpZip -UseBasicParsing
+if (-not (Test-Path (Join-Path $phpDir 'php-cgi.exe'))) {
+    Write-Output "downloading PHP 8.5.9 NTS vs17 x64"
+    $phpZip = Join-Path $env:TEMP 'php.zip'
+    $phpUrl = 'https://windows.php.net/downloads/releases/php-8.5.9-nts-Win32-vs17-x64.zip'
+    Invoke-WebRequest -Uri $phpUrl -OutFile $phpZip -UseBasicParsing
     New-Item -ItemType Directory -Force -Path $phpDir | Out-Null
     Write-Output "extracting PHP to $phpDir"
     Expand-Archive -Path $phpZip -DestinationPath $phpDir -Force
-    Remove-Item $phpZip -Force -ErrorAction SilentlyContinue
 } else {
-    Write-Output "PHP already present at $phpDir"
+    Write-Output "PHP already extracted to $phpDir"
 }
 
-# --- Build php.ini from the shipped production template ---
+# Derive php.ini from the shipped php.ini-production for THIS exact PHP version.
 $phpIni = Join-Path $phpDir 'php.ini'
-Write-Output "generating php.ini"
-Copy-Item -Path (Join-Path $phpDir 'php.ini-production') -Destination $phpIni -Force
-$ini = Get-Content -Path $phpIni
+$phpIniProd = Join-Path $phpDir 'php.ini-production'
+Write-Output "creating php.ini from php.ini-production"
+Copy-Item -Path $phpIniProd -Destination $phpIni -Force
+$ini = Get-Content $phpIni
+$ini = $ini -replace '^;?\s*extension_dir\s*=.*', 'extension_dir = "C:\PHP\ext"'
+$ini = $ini -replace '^;?\s*cgi\.fix_pathinfo\s*=.*', 'cgi.fix_pathinfo=1'
+$extensions = @'
 
-# Core FastCGI / runtime settings (set or append each directive)
-$settings = [ordered]@{
-    'extension_dir'        = '"C:\PHP\ext"'
-    'cgi.force_redirect'   = '0'
-    'cgi.fix_pathinfo'     = '1'
-    'fastcgi.impersonate'  = '1'
-    'date.timezone'        = 'UTC'
-}
-foreach ($key in $settings.Keys) {
-    $val = $settings[$key]
-    $pattern = '^\s*;?\s*' + [regex]::Escape($key) + '\s*='
-    if ($ini -match $pattern) {
-        $ini = $ini -replace ($pattern + '.*$'), "$key = $val"
-    } else {
-        $ini += "$key = $val"
-    }
-}
-
-# Enable extensions by uncommenting ONLY the exact ^;extension=NAME anchors (no leading whitespace),
-# so we don't touch the '; extension=...' documentation examples earlier in the file.
-$exts = 'curl','gd','mbstring','openssl','mysqli','pdo_mysql','pdo_sqlite','sqlite3','fileinfo','exif','soap','intl','sockets'
-foreach ($ext in $exts) {
-    $anchor = '^;extension=' + [regex]::Escape($ext) + '\s*$'
-    $ini = $ini | ForEach-Object {
-        if ($_ -match $anchor) { "extension=$ext" } else { $_ }
-    }
-}
+; Extensions enabled by Markgen deployment
+extension=mbstring
+extension=openssl
+extension=curl
+extension=mysqli
+extension=gd
+'@
 Set-Content -Path $phpIni -Value $ini
-Write-Output "php.ini written to $phpIni"
+Add-Content -Path $phpIni -Value $extensions
+Write-Output "php.ini configured"
 
-# --- Register the PHP FastCGI handler in IIS ---
-$appcmd = Join-Path $env:windir 'system32\inetsrv\appcmd.exe'
+# Register the FastCGI application and the *.php handler with appcmd (idempotent).
+$appcmd = Join-Path $env:windir 'System32\inetsrv\appcmd.exe'
+$phpCgi = Join-Path $phpDir 'php-cgi.exe'
 
-# Register php-cgi.exe as a FastCGI application (idempotent)
-$fcgiList = & $appcmd list config -section:system.webServer/fastCgi 2>$null
-if ($fcgiList -notmatch [regex]::Escape($phpCgi)) {
-    Write-Output "registering PHP FastCGI application"
-    & $appcmd set config -section:system.webServer/fastCgi /+"[fullPath='$phpCgi']" /commit:apphost | Out-Null
+$fastcgiExists = & $appcmd list config -section:system.webServer/fastCgi 2>$null | Select-String -SimpleMatch $phpCgi
+if (-not $fastcgiExists) {
+    Write-Output "registering FastCGI application for php-cgi.exe"
+    & $appcmd set config /section:system.webServer/fastCgi "/+[fullPath='$phpCgi']" | Out-Null
 } else {
-    Write-Output "PHP FastCGI application already registered"
+    Write-Output "FastCGI application already registered"
 }
 
-# Register the handler mapping for *.php (idempotent)
-$handlerList = & $appcmd list config -section:system.webServer/handlers 2>$null
-if ($handlerList -notmatch 'PHP_via_FastCGI') {
-    Write-Output "adding PHP handler mapping"
-    & $appcmd set config -section:system.webServer/handlers /+"[name='PHP_via_FastCGI',path='*.php',verb='*',modules='FastCgiModule',scriptProcessor='$phpCgi',resourceType='Either']" /commit:apphost | Out-Null
+$handlerExists = & $appcmd list config -section:system.webServer/handlers 2>$null | Select-String -SimpleMatch 'PHP_via_FastCGI'
+if (-not $handlerExists) {
+    Write-Output "registering *.php FastCGI handler"
+    & $appcmd set config /section:system.webServer/handlers "/+[name='PHP_via_FastCGI',path='*.php',verb='*',modules='FastCgiModule',scriptProcessor='$phpCgi',resourceType='Either']" | Out-Null
 } else {
-    Write-Output "PHP handler mapping already present"
+    Write-Output "*.php handler already registered"
 }
 
-# --- Ensure index.php is a default document ---
-$defDocs = & $appcmd list config -section:system.webServer/defaultDocument 2>$null
-if ($defDocs -notmatch 'index\.php') {
+# Add index.php as a default document
+$defDocExists = & $appcmd list config -section:system.webServer/defaultDocument 2>$null | Select-String -SimpleMatch 'index.php'
+if (-not $defDocExists) {
     Write-Output "adding index.php to default documents"
-    & $appcmd set config -section:system.webServer/defaultDocument /+"files.[value='index.php']" /commit:apphost | Out-Null
+    & $appcmd set config /section:system.webServer/defaultDocument "/+files.[value='index.php']" | Out-Null
+} else {
+    Write-Output "index.php already a default document"
 }
 
-# --- Deploy the minimal PHP marker page ---
+# Landing/health page proving PHP executes through IIS
 New-Item -ItemType Directory -Force -Path 'C:\inetpub\wwwroot' | Out-Null
-Set-Content -Path 'C:\inetpub\wwwroot\index.php' -Value '<?php echo "PHP-OK marker: " . phpversion(); ?>'
-Write-Output "deployed index.php marker page"
+Set-Content -Path 'C:\inetpub\wwwroot\index.php' -Value "<?php echo 'MARKGEN_PHP_OK ' . phpversion(); ?>"
+Write-Output "deployed index.php landing page"
 
-# --- Create an all-users IIS Manager desktop shortcut (first-boot safe) ---
-$inetMgr = Join-Path $env:windir 'system32\inetsrv\InetMgr.exe'
+# IIS Manager shortcut on the ALL-USERS (Public) desktop
+$inetMgr = 'C:\Windows\System32\inetsrv\InetMgr.exe'
 $publicDesktop = Join-Path $env:PUBLIC 'Desktop'
 $lnk = Join-Path $publicDesktop 'IIS Manager.lnk'
-if ((Test-Path $inetMgr) -and -not (Test-Path $lnk)) {
+if ((Test-Path $inetMgr) -and (-not (Test-Path $lnk))) {
     $wsh = New-Object -ComObject WScript.Shell
     $sc = $wsh.CreateShortcut($lnk)
     $sc.TargetPath = $inetMgr
@@ -182,15 +163,14 @@ if ((Test-Path $inetMgr) -and -not (Test-Path $lnk)) {
     Write-Output "created IIS Manager shortcut on the all-users desktop"
 }
 
-# --- Ensure IIS runs now and on every boot ---
+# Ensure the web service runs now and on every boot
+Start-Service W3SVC
 Set-Service W3SVC -StartupType Automatic
-if ((Get-Service W3SVC).Status -ne 'Running') {
-    Start-Service W3SVC
-}
-# Recycle to pick up the new handler/config
-& $appcmd stop site "Default Web Site" 2>$null | Out-Null
-& $appcmd start site "Default Web Site" 2>$null | Out-Null
-Write-Output "IIS is serving PHP via FastCGI on port 80"
+Write-Output "IIS is serving on port 80 with PHP 8.5.9 via FastCGI"
+
+# Restart to pick up the new handler/config
+Restart-Service W3SVC
+Write-Output "W3SVC restarted; deployment complete"
 # ----- END app-specific tasks -----
 
 Set-Status 'Finalizing (service, firewall, shortcut)...'
@@ -217,7 +197,7 @@ New-Item -ItemType Directory -Force -Path $cleanupDir | Out-Null
 $cleanupPath = Join-Path $cleanupDir 'windows-2019-cleanup.ps1'
 [System.IO.File]::WriteAllBytes(
     $cleanupPath,
-    [System.Convert]::FromBase64String('PCMKICBJTlZBUklBTlQgLSB0aGUgV2luZG93cyBmaXJzdC1sb2dpbiBjbGVhbnVwIHNjcmlwdCAoPGFwcD4tY2xlYW51cC5wczEpLgogIFdpbmRvd3MgYW5hbG9nIG9mIHRoZSBMaW51eCA8YXBwPl9jbGVhbnVwLnNoOiBvbiBmaXJzdCBpbnRlcmFjdGl2ZSBsb2dpbiBpdCBwcmludHMgdGhlIHN1Y2Nlc3MKICBiYW5uZXIgKyBhbnkgc3RvcmVkIGNyZWRlbnRpYWxzLCB0aGVuIHdpcGVzIGluc3RhbGwgdHJhY2VzIChjbG91ZGJhc2UtaW5pdCBsb2dzLCB0ZW1wKSBhbmQKICBzZWxmLWRlbGV0ZXMuIFJ1biBvbmNlIHZpYSBhIHNjaGVkdWxlZCB0YXNrICh0cmlnZ2VyOiBhdC1sb2dvbikgdGhhdCB0aGUgaW5zdGFsbCBzY3JpcHQKICByZWdpc3RlcmVkOyB0aGlzIHNjcmlwdCB1bnJlZ2lzdGVycyB0aGF0IHRhc2sgb24gaXRzIGZpcnN0IHJ1biBmb3IgcnVuLW9uY2Ugc2VtYW50aWNzLiBSdW5zIGluCiAgdGhlIHVzZXIncyBpbnRlcmFjdGl2ZSBzZXNzaW9uIHNvIHRoZSBiYW5uZXIgd2luZG93IGlzIFZJU0lCTEUuCiM+CiRFcnJvckFjdGlvblByZWZlcmVuY2UgPSAnU2lsZW50bHlDb250aW51ZScKCldyaXRlLUhvc3QgIiMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyIgLUZvcmVncm91bmRDb2xvciBSZWQKV3JpdGUtSG9zdCAiIyAgICAgICAgICAgIFlvdXIgTWFya2V0cGxhY2UgQXBwIChXaW5kb3dzIElJUyB3aXRoIFBIUCAoRmFzdENHSSkpIGhhcyBiZWVuIGRlcGxveWVkIHN1Y2Nlc3NmdWxseSEgICAgICAgICAgICAjIiAtRm9yZWdyb3VuZENvbG9yIFJlZApXcml0ZS1Ib3N0ICIjICAgICAgICAgICAgQ3JlZGVudGlhbHMgKGlmIGFueSkgYXJlIHNob3duIGJlbG93IGFuZCBzdG9yZWQgb24gZGlzay4gICAgICAgICAgICAgICAgICAgICAgICAgICMiIC1Gb3JlZ3JvdW5kQ29sb3IgUmVkCldyaXRlLUhvc3QgIiMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyIgLUZvcmVncm91bmRDb2xvciBSZWQKV3JpdGUtSG9zdCAiIgpXcml0ZS1Ib3N0ICJUaGlzIG1lc3NhZ2Ugd2lsbCBiZSByZW1vdmVkIGFmdGVyIHRoaXMgbG9naW4uIiAtRm9yZWdyb3VuZENvbG9yIFJlZApXcml0ZS1Ib3N0ICIiCgoKIyBDbGVhbnVwIHRyYWNlcyBvZiB0aGUgZGVwbG95bWVudC4KUmVtb3ZlLUl0ZW0gLVJlY3Vyc2UgLUZvcmNlICIkZW52OlN5c3RlbURyaXZlXENsb3VkYmFzZUluaXRcbG9nXCoiIC1FcnJvckFjdGlvbiBTaWxlbnRseUNvbnRpbnVlClJlbW92ZS1JdGVtIC1SZWN1cnNlIC1Gb3JjZSAiJGVudjpURU1QXCoiIC1FcnJvckFjdGlvbiBTaWxlbnRseUNvbnRpbnVlCkNsZWFyLUV2ZW50TG9nIC1Mb2dOYW1lIEFwcGxpY2F0aW9uLCBTeXN0ZW0gLUVycm9yQWN0aW9uIFNpbGVudGx5Q29udGludWUKCiMgR2l2ZSB0aGUgb3BlcmF0b3IgdGltZSB0byByZWFkIHRoZSBiYW5uZXIgYmVmb3JlIHRoZSB3aW5kb3cgY2xvc2VzIChpdCBydW5zIGluIHRoZWlyIHNlc3Npb24pLgpXcml0ZS1Ib3N0ICJUaGlzIHdpbmRvdyB3aWxsIGNsb3NlIGluIDIwIHNlY29uZHMuIiAtRm9yZWdyb3VuZENvbG9yIFJlZApTdGFydC1TbGVlcCAtU2Vjb25kcyAyMAoKIyBVbnJlZ2lzdGVyIHRoZSBmaXJzdC1sb2dpbiBzY2hlZHVsZWQgdGFzayAocnVuLW9uY2Ugc2VtYW50aWNzKSArIGRlbGV0ZSB0aGlzIHNjcmlwdCBpdHNlbGYuClVucmVnaXN0ZXItU2NoZWR1bGVkVGFzayAtVGFza05hbWUgJ21hcmtnZW4td2luZG93cy0yMDE5LWNsZWFudXAnIC1Db25maXJtOiRmYWxzZSAtRXJyb3JBY3Rpb24gU2lsZW50bHlDb250aW51ZQojIEFsc28gY2xlYXIgYW55IGxlZ2FjeSBSdW5PbmNlIGVudHJ5IGZyb20gb2xkZXIgaW5zdGFsbHMgKGhhcm1sZXNzIGlmIGFic2VudCkuClJlbW92ZS1JdGVtUHJvcGVydHkgLVBhdGggJ0hLTE06XFNPRlRXQVJFXE1pY3Jvc29mdFxXaW5kb3dzXEN1cnJlbnRWZXJzaW9uXFJ1bk9uY2UnIC1OYW1lICd3aW5kb3dzLTIwMTlfY2xlYW51cCcgLUVycm9yQWN0aW9uIFNpbGVudGx5Q29udGludWUKUmVtb3ZlLUl0ZW0gLUZvcmNlICRQU0NvbW1hbmRQYXRoIC1FcnJvckFjdGlvbiBTaWxlbnRseUNvbnRpbnVlCg==')
+    [System.Convert]::FromBase64String('PCMKICBJTlZBUklBTlQgLSB0aGUgV2luZG93cyBmaXJzdC1sb2dpbiBjbGVhbnVwIHNjcmlwdCAoPGFwcD4tY2xlYW51cC5wczEpLgogIFdpbmRvd3MgYW5hbG9nIG9mIHRoZSBMaW51eCA8YXBwPl9jbGVhbnVwLnNoOiBvbiBmaXJzdCBpbnRlcmFjdGl2ZSBsb2dpbiBpdCBwcmludHMgdGhlIHN1Y2Nlc3MKICBiYW5uZXIgKyBhbnkgc3RvcmVkIGNyZWRlbnRpYWxzLCB0aGVuIHdpcGVzIGluc3RhbGwgdHJhY2VzIChjbG91ZGJhc2UtaW5pdCBsb2dzLCB0ZW1wKSBhbmQKICBzZWxmLWRlbGV0ZXMuIFJ1biBvbmNlIHZpYSBhIHNjaGVkdWxlZCB0YXNrICh0cmlnZ2VyOiBhdC1sb2dvbikgdGhhdCB0aGUgaW5zdGFsbCBzY3JpcHQKICByZWdpc3RlcmVkOyB0aGlzIHNjcmlwdCB1bnJlZ2lzdGVycyB0aGF0IHRhc2sgb24gaXRzIGZpcnN0IHJ1biBmb3IgcnVuLW9uY2Ugc2VtYW50aWNzLiBSdW5zIGluCiAgdGhlIHVzZXIncyBpbnRlcmFjdGl2ZSBzZXNzaW9uIHNvIHRoZSBiYW5uZXIgd2luZG93IGlzIFZJU0lCTEUuCiM+CiRFcnJvckFjdGlvblByZWZlcmVuY2UgPSAnU2lsZW50bHlDb250aW51ZScKCldyaXRlLUhvc3QgIiMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyIgLUZvcmVncm91bmRDb2xvciBSZWQKV3JpdGUtSG9zdCAiIyAgICAgICAgICAgIFlvdXIgTWFya2V0cGxhY2UgQXBwIChXaW5kb3dzIElJUyArIFBIUCkgaGFzIGJlZW4gZGVwbG95ZWQgc3VjY2Vzc2Z1bGx5ISAgICAgICAgICAgICMiIC1Gb3JlZ3JvdW5kQ29sb3IgUmVkCldyaXRlLUhvc3QgIiMgICAgICAgICAgICBDcmVkZW50aWFscyAoaWYgYW55KSBhcmUgc2hvd24gYmVsb3cgYW5kIHN0b3JlZCBvbiBkaXNrLiAgICAgICAgICAgICAgICAgICAgICAgICAgIyIgLUZvcmVncm91bmRDb2xvciBSZWQKV3JpdGUtSG9zdCAiIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIiAtRm9yZWdyb3VuZENvbG9yIFJlZApXcml0ZS1Ib3N0ICIiCldyaXRlLUhvc3QgIlRoaXMgbWVzc2FnZSB3aWxsIGJlIHJlbW92ZWQgYWZ0ZXIgdGhpcyBsb2dpbi4iIC1Gb3JlZ3JvdW5kQ29sb3IgUmVkCldyaXRlLUhvc3QgIiIKCgojIENsZWFudXAgdHJhY2VzIG9mIHRoZSBkZXBsb3ltZW50LgpSZW1vdmUtSXRlbSAtUmVjdXJzZSAtRm9yY2UgIiRlbnY6U3lzdGVtRHJpdmVcQ2xvdWRiYXNlSW5pdFxsb2dcKiIgLUVycm9yQWN0aW9uIFNpbGVudGx5Q29udGludWUKUmVtb3ZlLUl0ZW0gLVJlY3Vyc2UgLUZvcmNlICIkZW52OlRFTVBcKiIgLUVycm9yQWN0aW9uIFNpbGVudGx5Q29udGludWUKQ2xlYXItRXZlbnRMb2cgLUxvZ05hbWUgQXBwbGljYXRpb24sIFN5c3RlbSAtRXJyb3JBY3Rpb24gU2lsZW50bHlDb250aW51ZQoKIyBHaXZlIHRoZSBvcGVyYXRvciB0aW1lIHRvIHJlYWQgdGhlIGJhbm5lciBiZWZvcmUgdGhlIHdpbmRvdyBjbG9zZXMgKGl0IHJ1bnMgaW4gdGhlaXIgc2Vzc2lvbikuCldyaXRlLUhvc3QgIlRoaXMgd2luZG93IHdpbGwgY2xvc2UgaW4gMjAgc2Vjb25kcy4iIC1Gb3JlZ3JvdW5kQ29sb3IgUmVkClN0YXJ0LVNsZWVwIC1TZWNvbmRzIDIwCgojIFVucmVnaXN0ZXIgdGhlIGZpcnN0LWxvZ2luIHNjaGVkdWxlZCB0YXNrIChydW4tb25jZSBzZW1hbnRpY3MpICsgZGVsZXRlIHRoaXMgc2NyaXB0IGl0c2VsZi4KVW5yZWdpc3Rlci1TY2hlZHVsZWRUYXNrIC1UYXNrTmFtZSAnbWFya2dlbi13aW5kb3dzLTIwMTktY2xlYW51cCcgLUNvbmZpcm06JGZhbHNlIC1FcnJvckFjdGlvbiBTaWxlbnRseUNvbnRpbnVlCiMgQWxzbyBjbGVhciBhbnkgbGVnYWN5IFJ1bk9uY2UgZW50cnkgZnJvbSBvbGRlciBpbnN0YWxscyAoaGFybWxlc3MgaWYgYWJzZW50KS4KUmVtb3ZlLUl0ZW1Qcm9wZXJ0eSAtUGF0aCAnSEtMTTpcU09GVFdBUkVcTWljcm9zb2Z0XFdpbmRvd3NcQ3VycmVudFZlcnNpb25cUnVuT25jZScgLU5hbWUgJ3dpbmRvd3MtMjAxOV9jbGVhbnVwJyAtRXJyb3JBY3Rpb24gU2lsZW50bHlDb250aW51ZQpSZW1vdmUtSXRlbSAtRm9yY2UgJFBTQ29tbWFuZFBhdGggLUVycm9yQWN0aW9uIFNpbGVudGx5Q29udGludWUK')
 )
 # The task name MUST match the name the cleanup script unregisters (markgen-windows-2019-cleanup).
 $taskName = 'markgen-windows-2019-cleanup'

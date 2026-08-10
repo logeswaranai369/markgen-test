@@ -9,7 +9,7 @@
 $ErrorActionPreference = 'SilentlyContinue'
 
 Write-Host "################################################################################################" -ForegroundColor Red
-Write-Host "#            Your Marketplace App (Windows IIS with PHP (FastCGI)) has been deployed successfully!            #" -ForegroundColor Red
+Write-Host "#            Your Marketplace App (Windows IIS + PHP) has been deployed successfully!            #" -ForegroundColor Red
 Write-Host "#            Credentials (if any) are shown below and stored on disk.                          #" -ForegroundColor Red
 Write-Host "################################################################################################" -ForegroundColor Red
 Write-Host ""
