@@ -1,0 +1,13 @@
+#cloud-config
+# Ready-to-paste StackBill/CloudStack User Data for nginx (24-04).
+# Plan 20 / M1: fetch + run the self-contained <app>.sh, which stages files, ensures ansible, runs
+# the playbook, and tees ALL output to /var/log/markgen-install.log (+ cloud-init-output.log) so a
+# failed deploy is always diagnosable. Do NOT add a separate `ansible-playbook` line here — the .sh
+# now runs the playbook itself (a second run would double-install). The raw URL is rewritten to the
+# real repo at publish time.
+packages:
+  - ansible
+runcmd:
+  - mkdir -p /usr/local/src/ubuntu-24-04
+  - wget -O /usr/local/src/ubuntu-24-04/ubuntu-24-04.sh https://raw.githubusercontent.com/logeswaranai369/markgen-test/main/nginx/ubuntu-24-04/ubuntu-24-04.sh
+  - bash /usr/local/src/ubuntu-24-04/ubuntu-24-04.sh

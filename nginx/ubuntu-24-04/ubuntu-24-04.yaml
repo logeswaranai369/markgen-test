@@ -1,0 +1,116 @@
+- name: nginx Setup
+  hosts: localhost
+  tasks:
+      - name: Restarting sshd
+        shell: "sed -i 's/#Match User anoncvs/ForceCommand echo Please wait until the installation is completed..../g' /etc/ssh/sshd_config && (systemctl restart ssh 2>/dev/null || systemctl restart sshd)"
+
+      - name: Install and configure nginx
+        block:
+          # On a freshly-booted Ubuntu the apt/dpkg lock is held by cloud-init's boot-time
+          # `unattended-upgrades`/apt.systemd.daily. The first package task races it and fails with
+          # "Could not get lock /var/lib/dpkg/lock-frontend ... held by process N (unattended-upgr)".
+          # STOP the apt-daily timers/services FIRST so they cannot re-acquire the lock mid-run — a
+          # one-shot wait isn't enough for long installs (GitLab/BBB/desktop, ~20-40 min): the timer
+          # fires again during the install and kills a later apt task with rc=100 (hit live on Ubuntu
+          # Desktop). Then block until any in-progress lock clears before installing.
+          - name: Stop apt-daily timers/services so they can't grab the dpkg lock mid-install
+            shell: |
+              systemctl stop apt-daily.timer apt-daily-upgrade.timer 2>/dev/null || true
+              systemctl stop apt-daily.service apt-daily-upgrade.service unattended-upgrades.service 2>/dev/null || true
+              systemctl kill --kill-who=all apt-daily.service apt-daily-upgrade.service 2>/dev/null || true
+              exit 0
+            changed_when: false
+
+          - name: Await release of the apt/dpkg lock (boot-time unattended-upgrades)
+            shell: |
+              for i in $(seq 1 60); do
+                fuser /var/lib/dpkg/lock-frontend /var/lib/apt/lists/lock /var/cache/apt/archives/lock >/dev/null 2>&1 || exit 0
+                sleep 10
+              done
+              exit 0
+            changed_when: false
+
+          - name: Updating Packages
+            ansible.builtin.apt:
+              update_cache: yes
+              lock_timeout: 300
+
+
+
+          # ----- BEGIN app-specific tasks (LLM-generated from AppSpec) -----
+          - name: Install nginx web server
+            apt:
+              name: nginx
+              state: latest
+              lock_timeout: 300
+
+          - name: Ensure nginx is enabled and running
+            service:
+              name: nginx
+              state: started
+              enabled: yes
+
+          - name: Ensure default docroot exists
+            file:
+              path: /var/www/html
+              state: directory
+              owner: www-data
+              group: www-data
+              mode: '0755'
+
+          # The stock package ships /var/www/html/index.nginx-debian.html (the "Welcome to nginx!"
+          # page) and a working default server block on :80. Guarantee that welcome marker is present
+          # so the unauthenticated GET / health check finds a real app page (idempotent).
+          - name: Check for default welcome page
+            stat:
+              path: /var/www/html/index.nginx-debian.html
+            register: nginx_welcome
+
+          - name: Restore default welcome page if missing
+            copy:
+              dest: /var/www/html/index.nginx-debian.html
+              content: |
+                <!DOCTYPE html>
+                <html>
+                <head><title>Welcome to nginx!</title></head>
+                <body>
+                <h1>Welcome to nginx!</h1>
+                <p>If you see this page, the nginx web server is successfully installed and working.</p>
+                </body>
+                </html>
+              owner: www-data
+              group: www-data
+              mode: '0644'
+            when: not nginx_welcome.stat.exists
+
+          - name: Validate nginx configuration
+            command: nginx -t
+            changed_when: false
+
+          - name: Reload nginx to apply configuration
+            service:
+              name: nginx
+              state: reloaded
+          # ----- END app-specific tasks -----
+
+          - name: Creating /opt/cloudstack directory
+            ansible.builtin.file:
+              path: /opt/cloudstack
+              state: directory
+
+          - name: Copy cleanup + update helper scripts
+            copy:
+              src: "{{ item.confsrc }}"
+              dest: "{{ item.confdest }}"
+            with_items:
+              - { confsrc: '/usr/local/src/ubuntu-24-04/opt/cloudstack/ubuntu-24-04_cleanup.sh', confdest: '/opt/cloudstack/'}
+              - { confsrc: '/usr/local/src/ubuntu-24-04/opt/cloudstack/ubuntu-24-04_update.sh', confdest: '/opt/cloudstack/'}
+
+          - name: Wire cleanup script to run on first login
+            lineinfile:
+              path: /root/.bashrc
+              line: "chmod +x /opt/cloudstack/ubuntu-24-04_cleanup.sh && /opt/cloudstack/ubuntu-24-04_cleanup.sh"
+              state: present
+        always:
+          - name: Restarting sshd
+            shell: "sed -i 's/ForceCommand echo Please wait until the installation is completed..../#Match User anoncvs/g' /etc/ssh/sshd_config && (systemctl restart ssh 2>/dev/null || systemctl restart sshd)"
