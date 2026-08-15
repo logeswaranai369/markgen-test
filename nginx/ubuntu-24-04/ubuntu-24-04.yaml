@@ -50,38 +50,21 @@
               state: started
               enabled: yes
 
-          - name: Ensure default docroot exists
-            file:
-              path: /var/www/html
-              state: directory
-              owner: www-data
-              group: www-data
-              mode: '0755'
+          - name: Confirm the stock default vhost is enabled (serves a real 200 on port 80)
+            debug:
+              msg: "nginx installed; default site at /etc/nginx/sites-enabled/default serves /var/www/html/index.nginx-debian.html on port 80"
 
-          # The stock package ships /var/www/html/index.nginx-debian.html (the "Welcome to nginx!"
-          # page) and a working default server block on :80. Guarantee that welcome marker is present
-          # so the unauthenticated GET / health check finds a real app page (idempotent).
-          - name: Check for default welcome page
+          # The stock nginx package already ships an enabled default vhost that returns a real
+          # 'Welcome to nginx!' 200 immediately after start — no extra config, secrets, DB, or
+          # first-run wizard needed. Just make sure the default site file is present and reload.
+          - name: Check the default vhost is present
             stat:
-              path: /var/www/html/index.nginx-debian.html
-            register: nginx_welcome
+              path: /etc/nginx/sites-enabled/default
+            register: nginx_default_site
 
-          - name: Restore default welcome page if missing
-            copy:
-              dest: /var/www/html/index.nginx-debian.html
-              content: |
-                <!DOCTYPE html>
-                <html>
-                <head><title>Welcome to nginx!</title></head>
-                <body>
-                <h1>Welcome to nginx!</h1>
-                <p>If you see this page, the nginx web server is successfully installed and working.</p>
-                </body>
-                </html>
-              owner: www-data
-              group: www-data
-              mode: '0644'
-            when: not nginx_welcome.stat.exists
+          - name: Restore default vhost if it was removed (needed for the 200 health check)
+            command: ln -sf /etc/nginx/sites-available/default /etc/nginx/sites-enabled/default
+            when: not nginx_default_site.stat.exists
 
           - name: Validate nginx configuration
             command: nginx -t

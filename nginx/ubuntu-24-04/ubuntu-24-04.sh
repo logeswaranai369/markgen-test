@@ -9,11 +9,23 @@ exec > >(tee -a /var/log/markgen-install.log /var/log/cloud-init-output.log) 2>&
 echo "MARKGEN_DEPLOY_START ubuntu-24-04 ($(date -u +%FT%TZ))"
 
 # --- stage files (fetch the playbook + shared assets from the published repo) ---------------------
+# fetch(): wget with a TIMEOUT + retries. A bare `wget` (no timeout) can HANG cloud-init for a very
+# long time when raw.githubusercontent.com throttles/stalls a connection mid-response (seen live: a
+# deploy stuck on the 2nd wget with no timeout — the Linux twin of the Windows no-timeout freeze).
+# --timeout caps each stall; --tries retries; a hard failure exits loudly BEFORE the sentinel so the
+# failure is diagnosable in the log rather than a silent hang.
+fetch() {
+  wget --timeout=60 --tries=5 --waitretry=10 --retry-connrefused -O "$1" "$2" || {
+    echo "MARKGEN: ERROR failed to download $2"
+    echo "MARKGEN_DEPLOY_COMPLETE rc=1"
+    exit 1
+  }
+}
 mkdir -p {/usr/local/src/ubuntu-24-04/opt/cloudstack,/usr/local/src/ubuntu-24-04/}
 
-cd /usr/local/src/ubuntu-24-04/opt/cloudstack && wget https://raw.githubusercontent.com/logeswaranai369/markgen-test/main/_common-files/opt/cloudstack/ubuntu-24-04_cleanup.sh
-cd /usr/local/src/ubuntu-24-04/opt/cloudstack && wget https://raw.githubusercontent.com/logeswaranai369/markgen-test/main/_common-files/opt/cloudstack/ubuntu-24-04_update.sh
-cd /usr/local/src/ubuntu-24-04/ && wget https://raw.githubusercontent.com/logeswaranai369/markgen-test/main/nginx/ubuntu-24-04/ubuntu-24-04.yaml
+fetch /usr/local/src/ubuntu-24-04/opt/cloudstack/ubuntu-24-04_cleanup.sh https://raw.githubusercontent.com/logeswaranai369/markgen-test/main/_common-files/opt/cloudstack/ubuntu-24-04_cleanup.sh
+fetch /usr/local/src/ubuntu-24-04/opt/cloudstack/ubuntu-24-04_update.sh https://raw.githubusercontent.com/logeswaranai369/markgen-test/main/_common-files/opt/cloudstack/ubuntu-24-04_update.sh
+fetch /usr/local/src/ubuntu-24-04/ubuntu-24-04.yaml https://raw.githubusercontent.com/logeswaranai369/markgen-test/main/nginx/ubuntu-24-04/ubuntu-24-04.yaml
 
 # --- ensure ansible (bare templates may not carry it), then run the playbook ----------------------
 apt_retry() {
