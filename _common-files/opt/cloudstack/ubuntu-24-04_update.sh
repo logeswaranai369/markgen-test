@@ -3,7 +3,7 @@ set -euo pipefail
 
 APP="ubuntu-24-04"
 INSTALLED_VERSION="5.19.10"
-UPSTREAM_SOURCE="apache:activemq"
+UPSTREAM_SOURCE="https://archive.apache.org/dist/activemq/5.19.10/apache-activemq-5.19.10-bin.tar.gz"
 
 echo "== ${APP} update check =="
 echo "Installed version: ${INSTALLED_VERSION}"

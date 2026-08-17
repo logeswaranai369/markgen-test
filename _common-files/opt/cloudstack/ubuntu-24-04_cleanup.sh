@@ -12,8 +12,8 @@ ${NC}"
 echo
 echo -e "${RED}This message will be removed in the next login!${NC}"
 echo
-echo -e "${RED}Credential: activemq_admin_password (stored at /root/.activemq_admin_password)${NC}"
-cat /root/.activemq_admin_password
+echo -e "${RED}Credential: activemq_admin_password (stored at /home/ubuntu/credentials.txt)${NC}"
+cat /home/ubuntu/credentials.txt
 echo
 
 #Cleanup script

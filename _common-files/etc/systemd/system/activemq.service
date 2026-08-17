@@ -1,0 +1,17 @@
+[Unit]
+Description=Apache ActiveMQ Classic
+After=network.target
+
+[Service]
+Type=forking
+User=activemq
+Group=activemq
+Environment=JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+PIDFile=/opt/activemq/data/activemq.pid
+ExecStart=/opt/activemq/bin/activemq start
+ExecStop=/opt/activemq/bin/activemq stop
+Restart=on-failure
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

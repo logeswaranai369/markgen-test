@@ -41,50 +41,39 @@
 
           - name: Storing activemq_admin_password
             copy:
-              dest: "/root/.activemq_admin_password"
+              dest: "/home/ubuntu/credentials.txt"
               content: |
                 activemq_admin_password = "{{ activemq_admin_password.stdout }}"
 
+          - name: Copy staged config files
+            copy:
+              src: "{{ item.confsrc }}"
+              dest: "{{ item.confdest }}"
+            with_items:
+              - { confsrc: '/usr/local/src/ubuntu-24-04/etc/systemd/system/activemq.service', confdest: '/etc/systemd/system/'}
 
           # ----- BEGIN app-specific tasks (LLM-generated from AppSpec) -----
-          - name: Show ActiveMQ install stage
-            debug:
-              msg: "Installing Java runtime for Apache ActiveMQ Classic 5.19.10"
-
-          - name: Install Java runtime (required by ActiveMQ)
+          - name: Wait for apt lock and install Java runtime
             apt:
-              name:
-                - openjdk-17-jre-headless
+              name: openjdk-17-jre-headless
               state: latest
               lock_timeout: 300
 
-          - name: Create activemq group
+          - name: Ensure activemq group exists
             group:
               name: activemq
               system: yes
 
-          - name: Create activemq system user
+          - name: Ensure activemq system user exists
             user:
               name: activemq
-              group: activemq
               system: yes
+              group: activemq
               home: /opt/activemq
               shell: /usr/sbin/nologin
               create_home: no
 
-          - name: Ensure ActiveMQ install directory exists
-            file:
-              path: /opt/activemq
-              state: directory
-              owner: activemq
-              group: activemq
-              mode: '0755'
-
-          - name: Show download stage
-            debug:
-              msg: "Downloading Apache ActiveMQ Classic 5.19.10 tarball"
-
-          - name: Download ActiveMQ 5.19.10 tarball
+          - name: Download Apache ActiveMQ 5.19.10 tarball
             get_url:
               url: https://archive.apache.org/dist/activemq/5.19.10/apache-activemq-5.19.10-bin.tar.gz
               dest: /tmp/apache-activemq-5.19.10-bin.tar.gz
@@ -95,7 +84,15 @@
               path: /opt/activemq/bin/activemq
             register: amq_installed
 
-          - name: Extract ActiveMQ into /opt/activemq
+          - name: Ensure /opt/activemq directory exists
+            file:
+              path: /opt/activemq
+              state: directory
+              owner: activemq
+              group: activemq
+              mode: '0755'
+
+          - name: Extract ActiveMQ to /opt/activemq
             unarchive:
               src: /tmp/apache-activemq-5.19.10-bin.tar.gz
               dest: /opt/activemq
@@ -106,7 +103,7 @@
               group: activemq
             when: not amq_installed.stat.exists
 
-          - name: Ensure ActiveMQ tree is owned by activemq
+          - name: Ensure ActiveMQ tree owned by activemq
             file:
               path: /opt/activemq
               state: directory
@@ -114,89 +111,70 @@
               group: activemq
               recurse: yes
 
-          - name: Show web console configuration stage
-            debug:
-              msg: "Configuring Jetty web console bind address and admin credentials"
-
-          - name: Bind web console to all interfaces (127.0.0.1 -> 0.0.0.0)
+          - name: "Configure web console to bind all interfaces (jetty.xml host 0.0.0.0)"
             replace:
               path: /opt/activemq/conf/jetty.xml
               regexp: '(<property name="host" value=")127\.0\.0\.1("\s*/>)'
               replace: '\g<1>0.0.0.0\g<2>'
-              owner: activemq
-              group: activemq
 
-          - name: Narrow web console security so /index.html stays public (only admin/api secured)
+          - name: "Add InetAccessHandler include for all networks (0.0.0.0/0)"
+            blockinfile:
+              path: /opt/activemq/conf/jetty.xml
+              marker: "<!-- {mark} MARKGEN INET ACCESS ALL -->"
+              insertbefore: '<bean id="invokeStart"'
+              block: |
+                <bean id="inetAccessIncludeAll" depends-on="inetAccessIncludeLoopbackV6" class="org.springframework.beans.factory.config.MethodInvokingFactoryBean">
+                    <property name="targetObject" ref="inetAccessHandler" />
+                    <property name="targetMethod" value="include" />
+                    <property name="arguments">
+                        <list>
+                            <value>0.0.0.0/0</value>
+                        </list>
+                    </property>
+                </bean>
+
+          - name: "Make invokeStart depend on the include-all bean so it runs before Server.start()"
             replace:
               path: /opt/activemq/conf/jetty.xml
-              regexp: '(<property name="pathSpec" value=")[^"]*("\s*/>)'
-              replace: '\g<1>/api/*,/admin/*,*.jsp\g<2>'
-              owner: activemq
-              group: activemq
+              regexp: '(<bean id="invokeStart"[^>]*depends-on=")inetAccessIncludeLoopbackV6(")'
+              replace: '\g<1>inetAccessIncludeAll\g<2>'
 
-          - name: Set web console admin credentials to generated password
+          - name: "Allow unauthenticated access to public welcome pages (securityConstraint authenticate=false)"
+            replace:
+              path: /opt/activemq/conf/jetty.xml
+              regexp: '(<bean id="securityConstraint"[\s\S]*?authenticate" value=")true(")'
+              replace: '\g<1>false\g<2>'
+
+          - name: Remove default realm users (admin/admin and user/user)
             lineinfile:
               path: /opt/activemq/conf/jetty-realm.properties
-              regexp: '^\s*admin\s*:'
-              line: "admin: {{ activemq_admin_password.stdout }}, admin"
-              owner: activemq
-              group: activemq
-              mode: '0600'
-
-          - name: Remove default web console user account
-            lineinfile:
-              path: /opt/activemq/conf/jetty-realm.properties
-              regexp: '^\s*user\s*:'
+              regexp: '^\s*(admin|user)\s*:'
               state: absent
 
-          - name: Show service configuration stage
-            debug:
-              msg: "Installing systemd unit and starting ActiveMQ broker"
+          - name: "Add admin console user with generated password"
+            lineinfile:
+              path: /opt/activemq/conf/jetty-realm.properties
+              line: "admin: {{ activemq_admin_password.stdout }}, admin"
 
-          - name: Detect JAVA_HOME for ActiveMQ service
-            shell: dirname "$(dirname "$(readlink -f "$(which java)")")"
-            register: amq_java_home
-            changed_when: false
-
-          - name: Install ActiveMQ systemd unit
-            copy:
-              dest: /etc/systemd/system/activemq.service
-              mode: '0644'
-              content: |
-                [Unit]
-                Description=Apache ActiveMQ Classic message broker
-                After=network.target
-
-                [Service]
-                Type=simple
-                User=activemq
-                Group=activemq
-                Environment=JAVA_HOME={{ amq_java_home.stdout }}
-                ExecStart=/opt/activemq/bin/activemq console
-                Restart=on-failure
-                RestartSec=5
-                LimitNOFILE=65536
-
-                [Install]
-                WantedBy=multi-user.target
-
-          - name: Reload systemd, enable and start ActiveMQ
+          - name: Reload systemd to pick up the activemq unit
             systemd:
-              name: activemq
               daemon_reload: yes
-              enabled: yes
-              state: started
 
-          - name: Record web console credentials for operator
-            copy:
-              dest: /home/ubuntu/credentials.txt
-              mode: '0600'
-              content: |
-                Apache ActiveMQ Classic 5.19.10
-                Web console URL: http://<server-ip>:8161/admin/
-                Username: admin
-                Password: {{ activemq_admin_password.stdout }}
-                OpenWire (broker) port: 61616
+          - name: Enable and start ActiveMQ
+            service:
+              name: activemq
+              state: started
+              enabled: yes
+
+          - name: Wait for the web console to serve the welcome page
+            uri:
+              url: http://localhost:8161/index.html
+              status_code: 200
+              return_content: yes
+            register: amq_web
+            until: amq_web.status == 200 and 'ActiveMQ' in (amq_web.content | default(''))
+            retries: 30
+            delay: 5
           # ----- END app-specific tasks -----
 
           - name: Creating /opt/cloudstack directory

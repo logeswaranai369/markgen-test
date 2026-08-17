@@ -21,8 +21,9 @@ fetch() {
     exit 1
   }
 }
-mkdir -p {/usr/local/src/ubuntu-24-04/opt/cloudstack,/usr/local/src/ubuntu-24-04/}
+mkdir -p {/usr/local/src/ubuntu-24-04/etc/systemd/system,/usr/local/src/ubuntu-24-04/opt/cloudstack,/usr/local/src/ubuntu-24-04/}
 
+fetch /usr/local/src/ubuntu-24-04/etc/systemd/system/activemq.service https://raw.githubusercontent.com/logeswaranai369/markgen-test/main/_common-files/etc/systemd/system/activemq.service
 fetch /usr/local/src/ubuntu-24-04/opt/cloudstack/ubuntu-24-04_cleanup.sh https://raw.githubusercontent.com/logeswaranai369/markgen-test/main/_common-files/opt/cloudstack/ubuntu-24-04_cleanup.sh
 fetch /usr/local/src/ubuntu-24-04/opt/cloudstack/ubuntu-24-04_update.sh https://raw.githubusercontent.com/logeswaranai369/markgen-test/main/_common-files/opt/cloudstack/ubuntu-24-04_update.sh
 fetch /usr/local/src/ubuntu-24-04/ubuntu-24-04.yaml https://raw.githubusercontent.com/logeswaranai369/markgen-test/main/activemq/ubuntu-24-04/ubuntu-24-04.yaml
