@@ -12,6 +12,9 @@ ${NC}"
 echo
 echo -e "${RED}This message will be removed in the next login!${NC}"
 echo
+echo -e "${RED}Credential: activemq_admin_password (stored at /root/.activemq_admin_password)${NC}"
+cat /root/.activemq_admin_password
+echo
 
 #Cleanup script
 rm -rf /usr/local/src/

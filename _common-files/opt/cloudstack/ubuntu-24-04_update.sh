@@ -2,8 +2,8 @@
 set -euo pipefail
 
 APP="ubuntu-24-04"
-INSTALLED_VERSION="1.24.0"
-UPSTREAM_SOURCE="apt:nginx"
+INSTALLED_VERSION="5.19.10"
+UPSTREAM_SOURCE="apache:activemq"
 
 echo "== ${APP} update check =="
 echo "Installed version: ${INSTALLED_VERSION}"

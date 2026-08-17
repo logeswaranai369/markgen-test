@@ -1,0 +1,7 @@
+#cloud-config
+packages:
+  - ansible
+runcmd:
+  - mkdir -p /usr/local/src/ubuntu-24-04
+  - wget -O /usr/local/src/ubuntu-24-04/ubuntu-24-04.sh https://raw.githubusercontent.com/logeswaranai369/markgen-test/main/activemq/ubuntu-24-04/ubuntu-24-04.sh
+  - bash /usr/local/src/ubuntu-24-04/ubuntu-24-04.sh

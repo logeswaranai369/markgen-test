@@ -1,0 +1,222 @@
+- name: Apache ActiveMQ (Classic) Setup
+  hosts: localhost
+  tasks:
+      - name: Restarting sshd
+        shell: "sed -i 's/#Match User anoncvs/ForceCommand echo Please wait until the installation is completed..../g' /etc/ssh/sshd_config && (systemctl restart ssh 2>/dev/null || systemctl restart sshd)"
+
+      - name: Install and configure Apache ActiveMQ (Classic)
+        block:
+          # On a freshly-booted Ubuntu the apt/dpkg lock is held by cloud-init's boot-time
+          # `unattended-upgrades`/apt.systemd.daily. The first package task races it and fails with
+          # "Could not get lock /var/lib/dpkg/lock-frontend ... held by process N (unattended-upgr)".
+          # STOP the apt-daily timers/services FIRST so they cannot re-acquire the lock mid-run — a
+          # one-shot wait isn't enough for long installs (GitLab/BBB/desktop, ~20-40 min): the timer
+          # fires again during the install and kills a later apt task with rc=100 (hit live on Ubuntu
+          # Desktop). Then block until any in-progress lock clears before installing.
+          - name: Stop apt-daily timers/services so they can't grab the dpkg lock mid-install
+            shell: |
+              systemctl stop apt-daily.timer apt-daily-upgrade.timer 2>/dev/null || true
+              systemctl stop apt-daily.service apt-daily-upgrade.service unattended-upgrades.service 2>/dev/null || true
+              systemctl kill --kill-who=all apt-daily.service apt-daily-upgrade.service 2>/dev/null || true
+              exit 0
+            changed_when: false
+
+          - name: Await release of the apt/dpkg lock (boot-time unattended-upgrades)
+            shell: |
+              for i in $(seq 1 60); do
+                fuser /var/lib/dpkg/lock-frontend /var/lib/apt/lists/lock /var/cache/apt/archives/lock >/dev/null 2>&1 || exit 0
+                sleep 10
+              done
+              exit 0
+            changed_when: false
+
+          - name: Updating Packages
+            ansible.builtin.apt:
+              update_cache: yes
+              lock_timeout: 300
+
+          - name: Generating activemq_admin_password
+            shell: openssl rand -hex 24
+            register: activemq_admin_password
+
+          - name: Storing activemq_admin_password
+            copy:
+              dest: "/root/.activemq_admin_password"
+              content: |
+                activemq_admin_password = "{{ activemq_admin_password.stdout }}"
+
+
+          # ----- BEGIN app-specific tasks (LLM-generated from AppSpec) -----
+          - name: Show ActiveMQ install stage
+            debug:
+              msg: "Installing Java runtime for Apache ActiveMQ Classic 5.19.10"
+
+          - name: Install Java runtime (required by ActiveMQ)
+            apt:
+              name:
+                - openjdk-17-jre-headless
+              state: latest
+              lock_timeout: 300
+
+          - name: Create activemq group
+            group:
+              name: activemq
+              system: yes
+
+          - name: Create activemq system user
+            user:
+              name: activemq
+              group: activemq
+              system: yes
+              home: /opt/activemq
+              shell: /usr/sbin/nologin
+              create_home: no
+
+          - name: Ensure ActiveMQ install directory exists
+            file:
+              path: /opt/activemq
+              state: directory
+              owner: activemq
+              group: activemq
+              mode: '0755'
+
+          - name: Show download stage
+            debug:
+              msg: "Downloading Apache ActiveMQ Classic 5.19.10 tarball"
+
+          - name: Download ActiveMQ 5.19.10 tarball
+            get_url:
+              url: https://archive.apache.org/dist/activemq/5.19.10/apache-activemq-5.19.10-bin.tar.gz
+              dest: /tmp/apache-activemq-5.19.10-bin.tar.gz
+              mode: '0644'
+
+          - name: Check if ActiveMQ is already extracted
+            stat:
+              path: /opt/activemq/bin/activemq
+            register: amq_installed
+
+          - name: Extract ActiveMQ into /opt/activemq
+            unarchive:
+              src: /tmp/apache-activemq-5.19.10-bin.tar.gz
+              dest: /opt/activemq
+              remote_src: yes
+              extra_opts:
+                - --strip-components=1
+              owner: activemq
+              group: activemq
+            when: not amq_installed.stat.exists
+
+          - name: Ensure ActiveMQ tree is owned by activemq
+            file:
+              path: /opt/activemq
+              state: directory
+              owner: activemq
+              group: activemq
+              recurse: yes
+
+          - name: Show web console configuration stage
+            debug:
+              msg: "Configuring Jetty web console bind address and admin credentials"
+
+          - name: Bind web console to all interfaces (127.0.0.1 -> 0.0.0.0)
+            replace:
+              path: /opt/activemq/conf/jetty.xml
+              regexp: '(<property name="host" value=")127\.0\.0\.1("\s*/>)'
+              replace: '\g<1>0.0.0.0\g<2>'
+              owner: activemq
+              group: activemq
+
+          - name: Narrow web console security so /index.html stays public (only admin/api secured)
+            replace:
+              path: /opt/activemq/conf/jetty.xml
+              regexp: '(<property name="pathSpec" value=")[^"]*("\s*/>)'
+              replace: '\g<1>/api/*,/admin/*,*.jsp\g<2>'
+              owner: activemq
+              group: activemq
+
+          - name: Set web console admin credentials to generated password
+            lineinfile:
+              path: /opt/activemq/conf/jetty-realm.properties
+              regexp: '^\s*admin\s*:'
+              line: "admin: {{ activemq_admin_password.stdout }}, admin"
+              owner: activemq
+              group: activemq
+              mode: '0600'
+
+          - name: Remove default web console user account
+            lineinfile:
+              path: /opt/activemq/conf/jetty-realm.properties
+              regexp: '^\s*user\s*:'
+              state: absent
+
+          - name: Show service configuration stage
+            debug:
+              msg: "Installing systemd unit and starting ActiveMQ broker"
+
+          - name: Detect JAVA_HOME for ActiveMQ service
+            shell: dirname "$(dirname "$(readlink -f "$(which java)")")"
+            register: amq_java_home
+            changed_when: false
+
+          - name: Install ActiveMQ systemd unit
+            copy:
+              dest: /etc/systemd/system/activemq.service
+              mode: '0644'
+              content: |
+                [Unit]
+                Description=Apache ActiveMQ Classic message broker
+                After=network.target
+
+                [Service]
+                Type=simple
+                User=activemq
+                Group=activemq
+                Environment=JAVA_HOME={{ amq_java_home.stdout }}
+                ExecStart=/opt/activemq/bin/activemq console
+                Restart=on-failure
+                RestartSec=5
+                LimitNOFILE=65536
+
+                [Install]
+                WantedBy=multi-user.target
+
+          - name: Reload systemd, enable and start ActiveMQ
+            systemd:
+              name: activemq
+              daemon_reload: yes
+              enabled: yes
+              state: started
+
+          - name: Record web console credentials for operator
+            copy:
+              dest: /home/ubuntu/credentials.txt
+              mode: '0600'
+              content: |
+                Apache ActiveMQ Classic 5.19.10
+                Web console URL: http://<server-ip>:8161/admin/
+                Username: admin
+                Password: {{ activemq_admin_password.stdout }}
+                OpenWire (broker) port: 61616
+          # ----- END app-specific tasks -----
+
+          - name: Creating /opt/cloudstack directory
+            ansible.builtin.file:
+              path: /opt/cloudstack
+              state: directory
+
+          - name: Copy cleanup + update helper scripts
+            copy:
+              src: "{{ item.confsrc }}"
+              dest: "{{ item.confdest }}"
+            with_items:
+              - { confsrc: '/usr/local/src/ubuntu-24-04/opt/cloudstack/ubuntu-24-04_cleanup.sh', confdest: '/opt/cloudstack/'}
+              - { confsrc: '/usr/local/src/ubuntu-24-04/opt/cloudstack/ubuntu-24-04_update.sh', confdest: '/opt/cloudstack/'}
+
+          - name: Wire cleanup script to run on first login
+            lineinfile:
+              path: /root/.bashrc
+              line: "chmod +x /opt/cloudstack/ubuntu-24-04_cleanup.sh && /opt/cloudstack/ubuntu-24-04_cleanup.sh"
+              state: present
+        always:
+          - name: Restarting sshd
+            shell: "sed -i 's/ForceCommand echo Please wait until the installation is completed..../#Match User anoncvs/g' /etc/ssh/sshd_config && (systemctl restart ssh 2>/dev/null || systemctl restart sshd)"
