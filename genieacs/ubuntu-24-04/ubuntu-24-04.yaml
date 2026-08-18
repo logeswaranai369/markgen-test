@@ -85,86 +85,88 @@
                   genieacs admin password : {{ genieacs_admin_password.stdout }}
 
                 Notes:
-                  Log in to the UI at http://<PUBLIC_IP>:3000/ with the seeded admin user. TLS is disabled by default (plain HTTP on all services); enable CWMP/UI SSL via GENIEACS_*_SSL_CERT/KEY for production. MongoDB stays bound to 127.0.0.1 (local, correct — GenieACS talks to it locally).
+                  GenieACS UI has NO authentication until a user exists (empty users collection = full open admin) — this build hardens it by seeding an admin login + admin-role permissions. MongoDB stays on 127.0.0.1 (local backend, correct); all four GenieACS services bind 0.0.0.0. Node 20 (NodeSource) + MongoDB 8.0 (only noble build) verified with GenieACS 1.2.16's bundled mongodb driver 4.16. Seed script needs NODE_PATH=/usr/local/lib/node_modules/genieacs/node_modules and mongod running. All steps idempotent (npm guarded by creates, seed uses upsert).
 
 
           # ----- BEGIN app-specific tasks (LLM-generated from AppSpec) -----
-          - name: Install prerequisite packages
+          - name: Install base prerequisite packages
             apt:
               name:
-                - gnupg
                 - curl
+                - gnupg
                 - ca-certificates
+                - apt-transport-https
               state: latest
               lock_timeout: 300
 
-          - name: Add MongoDB 8.0 GPG key (dearmored keyring)
+          - name: Add NodeSource GPG key (Node 20 LTS)
             shell: |
-              set -o pipefail
-              curl -fsSL https://www.mongodb.org/static/pgp/server-8.0.asc \
-                | gpg --dearmor -o /usr/share/keyrings/mongodb-server-8.0.gpg
+              curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /usr/share/keyrings/nodesource.gpg
             args:
-              executable: /bin/bash
+              creates: /usr/share/keyrings/nodesource.gpg
+
+          - name: Add NodeSource apt repository
+            apt_repository:
+              repo: "deb [signed-by=/usr/share/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main"
+              filename: nodesource
+              state: present
+              update_cache: yes
+
+          - name: Add MongoDB 8.0 GPG key
+            shell: |
+              curl -fsSL https://www.mongodb.org/static/pgp/server-8.0.asc | gpg --dearmor -o /usr/share/keyrings/mongodb-server-8.0.gpg
+            args:
               creates: /usr/share/keyrings/mongodb-server-8.0.gpg
 
-          - name: Add MongoDB 8.0 apt repository (codename derived from this release)
+          # MongoDB 8.0 publishes per-release builds (jammy/noble/...). Pick the codename at runtime
+          # from the gathered facts so this ONE playbook works across Ubuntu versions.
+          - name: Add MongoDB 8.0 apt repository (per-release codename)
             apt_repository:
               repo: "deb [ signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg ] https://repo.mongodb.org/apt/ubuntu {{ ansible_distribution_release }}/mongodb-org/8.0 multiverse"
               filename: mongodb-org-8.0
               state: present
-
-          - name: Debug - installing MongoDB
-            debug:
-              msg: "Installing MongoDB 8.0 server packages"
-
-          - name: Install MongoDB server
-            apt:
-              name: mongodb-org
-              state: latest
               update_cache: yes
-              lock_timeout: 300
 
-          - name: Ensure MongoDB is enabled and running (bound to localhost, correct for GenieACS)
-            service:
-              name: mongod
-              enabled: yes
-              state: started
-
-          - name: Debug - setting up Node.js
+          - name: Install Node.js 20
             debug:
-              msg: "Setting up NodeSource Node.js 20.x repository and installing Node.js"
+              msg: "Installing Node.js 20 from NodeSource"
 
-          - name: Add NodeSource Node.js 20.x repository
-            shell: |
-              set -o pipefail
-              curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-            args:
-              executable: /bin/bash
-              creates: /etc/apt/sources.list.d/nodesource.list
-
-          - name: Install Node.js (includes npm)
+          - name: Install Node.js runtime
             apt:
               name: nodejs
               state: latest
-              update_cache: yes
               lock_timeout: 300
 
-          - name: Debug - installing GenieACS via npm
+          - name: Install MongoDB server
             debug:
-              msg: "Installing genieacs@1.2.16 globally with prefix /usr/local"
+              msg: "Installing MongoDB 8.0"
 
-          - name: Check if GenieACS is already installed
-            stat:
-              path: /usr/local/bin/genieacs-cwmp
-            register: genieacs_bin
+          - name: Install MongoDB packages
+            apt:
+              name: mongodb-org
+              state: latest
+              lock_timeout: 300
 
-          - name: Install GenieACS globally (prefix /usr/local so binaries land in /usr/local/bin)
+          - name: Ensure mongod is enabled and running
+            service:
+              name: mongod
+              state: started
+              enabled: yes
+
+          - name: Wait for MongoDB to accept connections
+            wait_for:
+              host: 127.0.0.1
+              port: 27017
+              timeout: 120
+
+          - name: Install GenieACS via npm
+            debug:
+              msg: "Installing GenieACS 1.2.16 globally under /usr/local"
+
+          - name: Install GenieACS (npm global, pinned version)
             command: npm install -g --prefix /usr/local genieacs@1.2.16
-            when: not genieacs_bin.stat.exists
-
-          - name: Debug - creating genieacs system user and directories
-            debug:
-              msg: "Creating genieacs user, /opt/genieacs and /var/log/genieacs"
+            args:
+              creates: /usr/local/lib/node_modules/genieacs
 
           - name: Create genieacs system group
             group:
@@ -192,151 +194,146 @@
               - /opt/genieacs/ext
               - /var/log/genieacs
 
-          - name: Debug - writing GenieACS environment file
+          - name: Write GenieACS runtime environment file (with real JWT secret)
             debug:
-              msg: "Writing /opt/genieacs/genieacs.env with generated JWT secret and 0.0.0.0 bindings"
+              msg: "Writing /opt/genieacs/genieacs.env with generated JWT secret; all interfaces bind 0.0.0.0"
 
-          - name: Write GenieACS environment file (contains generated JWT secret)
+          - name: Deploy genieacs.env
             copy:
               dest: /opt/genieacs/genieacs.env
               owner: genieacs
               group: genieacs
               mode: '0600'
               content: |
-                GENIEACS_CWMP_ACCESS_LOG_FILE=/var/log/genieacs/genieacs-cwmp-access.log
-                GENIEACS_NBI_ACCESS_LOG_FILE=/var/log/genieacs/genieacs-nbi-access.log
-                GENIEACS_FS_ACCESS_LOG_FILE=/var/log/genieacs/genieacs-fs-access.log
-                GENIEACS_UI_ACCESS_LOG_FILE=/var/log/genieacs/genieacs-ui-access.log
-                GENIEACS_DEBUG_FILE=/var/log/genieacs/genieacs-debug.yaml
-                NODE_OPTIONS=--enable-source-maps
+                GENIEACS_MONGODB_CONNECTION_URL=mongodb://127.0.0.1/genieacs
                 GENIEACS_EXT_DIR=/opt/genieacs/ext
+                GENIEACS_UI_JWT_SECRET={{ genieacs_ui_jwt_secret.stdout }}
                 GENIEACS_CWMP_INTERFACE=0.0.0.0
                 GENIEACS_NBI_INTERFACE=0.0.0.0
                 GENIEACS_FS_INTERFACE=0.0.0.0
                 GENIEACS_UI_INTERFACE=0.0.0.0
-                GENIEACS_UI_JWT_SECRET={{ genieacs_ui_jwt_secret.stdout }}
+                GENIEACS_CWMP_ACCESS_LOG_FILE=/var/log/genieacs/genieacs-cwmp-access.log
+                GENIEACS_NBI_ACCESS_LOG_FILE=/var/log/genieacs/genieacs-nbi-access.log
+                GENIEACS_FS_ACCESS_LOG_FILE=/var/log/genieacs/genieacs-fs-access.log
+                GENIEACS_UI_ACCESS_LOG_FILE=/var/log/genieacs/genieacs-ui-access.log
 
-          - name: Debug - installing systemd units
-            debug:
-              msg: "Writing systemd units for genieacs-cwmp/nbi/fs/ui"
-
-          - name: Write GenieACS systemd units
-            copy:
-              dest: "/etc/systemd/system/genieacs-{{ item.svc }}.service"
-              mode: '0644'
-              content: |
-                [Unit]
-                Description=GenieACS {{ item.desc }}
-                After=network.target mongod.service
-
-                [Service]
-                User=genieacs
-                EnvironmentFile=/opt/genieacs/genieacs.env
-                ExecStart=/usr/local/bin/genieacs-{{ item.svc }}
-
-                [Install]
-                WantedBy=default.target
-            loop:
-              - { svc: cwmp, desc: CWMP }
-              - { svc: nbi,  desc: NBI }
-              - { svc: fs,   desc: FS }
-              - { svc: ui,   desc: UI }
-
-          - name: Write logrotate config for GenieACS
-            copy:
-              dest: /etc/logrotate.d/genieacs
-              mode: '0644'
-              content: |
-                /var/log/genieacs/*.log /var/log/genieacs/*.yaml {
-                    daily
-                    rotate 30
-                    compress
-                    delaycompress
-                    dateext
-                }
-
-          - name: Debug - writing admin seed script
-            debug:
-              msg: "Writing /opt/genieacs/seed-admin.js"
-
-          - name: Write admin seed script
+          - name: Deploy admin seeder script
             copy:
               dest: /opt/genieacs/seed-admin.js
               owner: genieacs
               group: genieacs
               mode: '0644'
               content: |
-                const crypto = require('crypto');
-                const { MongoClient } = require('mongodb');
-                const username = process.argv[2];
-                const password = process.argv[3];
-                const resources = ['devices','faults','files','presets','provisions','config','permissions','users','virtualParameters'];
+                "use strict";
+                const crypto = require("crypto");
+                const { MongoClient } = require("mongodb");
+                const fs = require("fs");
+
+                const MONGO = process.env.GENIEACS_MONGODB_CONNECTION_URL || "mongodb://127.0.0.1/genieacs";
+                const raw = fs.readFileSync("/root/.genieacs_admin_password", "utf8").trim();
+                const m = raw.match(/=\s*"(.*)"\s*$/);
+                const password = m ? m[1] : raw;
+
+                const RESOURCES = ["devices","faults","files","presets","provisions","config","permissions","users","virtualParameters"];
+
+                function hash(pw, salt) {
+                  return new Promise((res, rej) => {
+                    crypto.pbkdf2(pw, salt, 10000, 128, "sha512", (e, d) => e ? rej(e) : res(d.toString("hex")));
+                  });
+                }
+
                 (async () => {
-                  const client = new MongoClient('mongodb://127.0.0.1:27017/genieacs');
-                  await client.connect();
-                  const db = client.db('genieacs');
-                  const salt = crypto.randomBytes(64).toString('hex');
-                  const hash = crypto.pbkdf2Sync(password, salt, 10000, 128, 'sha512').toString('hex');
-                  await db.collection('users').updateOne(
-                    { _id: username },
-                    { $set: { password: hash, salt: salt, roles: 'admin' } },
+                  const salt = crypto.randomBytes(64).toString("hex");
+                  const pwHash = await hash(password, salt);
+                  const client = await MongoClient.connect(MONGO);
+                  const db = client.db();
+                  await db.collection("users").replaceOne(
+                    { _id: "admin" },
+                    { _id: "admin", password: pwHash, salt: salt, roles: "admin" },
                     { upsert: true }
                   );
-                  for (const r of resources) {
-                    await db.collection('permissions').updateOne(
-                      { _id: 'admin:' + r + ':3' },
-                      { $set: { role: 'admin', resource: r, access: 3, filter: 'true', validate: 'true' } },
+                  for (const r of RESOURCES) {
+                    const _id = `admin:${r}:3`;
+                    await db.collection("permissions").replaceOne(
+                      { _id },
+                      { _id, role: "admin", resource: r, access: 3, validate: "true" },
                       { upsert: true }
                     );
                   }
                   await client.close();
-                  console.log('Seed complete');
+                  console.log("Seeded admin user + permissions");
                 })().catch(e => { console.error(e); process.exit(1); });
 
-          - name: Reload systemd to pick up new units
-            systemd:
-              daemon_reload: yes
-
-          - name: Debug - seeding admin user into MongoDB
+          - name: Deploy systemd units for all four GenieACS services
             debug:
-              msg: "Seeding UI admin user + admin role permissions (idempotent upsert)"
+              msg: "Creating systemd units for genieacs-cwmp/nbi/fs/ui"
 
-          - name: Seed GenieACS admin user (uses mongodb driver bundled with genieacs)
-            command: node /opt/genieacs/seed-admin.js admin '{{ genieacs_admin_password.stdout }}'
-            environment:
-              NODE_PATH: /usr/local/lib/node_modules/genieacs/node_modules
-            register: seed_result
-            changed_when: "'Seed complete' in seed_result.stdout"
+          - name: Write GenieACS systemd unit files
+            copy:
+              dest: "/etc/systemd/system/genieacs-{{ item }}.service"
+              mode: '0644'
+              content: |
+                [Unit]
+                Description=GenieACS {{ item }}
+                After=network.target mongod.service
+                Wants=mongod.service
 
-          - name: Debug - enabling and starting GenieACS services
-            debug:
-              msg: "Enabling and starting genieacs-cwmp/nbi/fs/ui"
+                [Service]
+                User=genieacs
+                Group=genieacs
+                EnvironmentFile=/opt/genieacs/genieacs.env
+                ExecStart=/usr/local/bin/genieacs-{{ item }}
+                Restart=always
 
-          - name: Enable and start GenieACS services
-            service:
-              name: "genieacs-{{ item }}"
-              enabled: yes
-              state: started
+                [Install]
+                WantedBy=multi-user.target
             loop:
               - cwmp
               - nbi
               - fs
               - ui
 
-          - name: Write credentials file for operator
+          - name: Reload systemd to pick up new units
+            systemd:
+              daemon_reload: yes
+
+          - name: Seed admin user + permissions (idempotent upsert; hardens the open UI)
+            debug:
+              msg: "Seeding GenieACS admin login so the UI is not left wide open"
+
+          - name: Run the admin seeder
+            command: node /opt/genieacs/seed-admin.js
+            environment:
+              NODE_PATH: /usr/local/lib/node_modules/genieacs/node_modules
+              GENIEACS_MONGODB_CONNECTION_URL: mongodb://127.0.0.1/genieacs
+            register: seed_result
+            changed_when: "'Seeded' in seed_result.stdout"
+
+          - name: Enable and start all GenieACS services
+            service:
+              name: "genieacs-{{ item }}"
+              state: started
+              enabled: yes
+            loop:
+              - cwmp
+              - nbi
+              - fs
+              - ui
+
+          - name: Write operator credentials file
             copy:
               dest: /home/ubuntu/credentials.txt
               owner: ubuntu
               group: ubuntu
               mode: '0600'
               content: |
-                GenieACS Web UI: http://<PUBLIC_IP>:3000/
+                GenieACS Web UI
+                URL: http://<server-ip>:3000/
                 Admin username: admin
                 Admin password: {{ genieacs_admin_password.stdout }}
 
-                TR-069 CWMP endpoint: http://<PUBLIC_IP>:7547/
-                Northbound API (NBI): http://<PUBLIC_IP>:7557/
-                File Server (FS):     http://<PUBLIC_IP>:7567/
+                Ports: UI 3000, CWMP/TR-069 7547, NBI 7557, FS 7567
+                MongoDB: mongodb://127.0.0.1/genieacs (local backend)
           # ----- END app-specific tasks -----
 
           - name: Creating /opt/cloudstack directory
