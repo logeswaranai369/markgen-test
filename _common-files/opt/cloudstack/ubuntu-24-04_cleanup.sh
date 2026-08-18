@@ -12,8 +12,11 @@ ${NC}"
 echo
 echo -e "${RED}This message will be removed in the next login!${NC}"
 echo
-echo -e "${RED}Credential: activemq_admin_password (stored at /home/ubuntu/credentials.txt)${NC}"
-cat /home/ubuntu/credentials.txt
+echo -e "${RED}Credential: genieacs_ui_jwt_secret (stored at /root/.genieacs_ui_jwt_secret)${NC}"
+cat /root/.genieacs_ui_jwt_secret
+echo
+echo -e "${RED}Credential: genieacs_admin_password (stored at /root/.genieacs_admin_password)${NC}"
+cat /root/.genieacs_admin_password
 echo
 
 #Cleanup script
