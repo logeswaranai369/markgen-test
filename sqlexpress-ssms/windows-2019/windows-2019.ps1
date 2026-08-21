@@ -29,7 +29,7 @@ function Set-Status($msg) { try { Set-Content -Path $mgStatusFile -Value $msg -E
 function Write-Stage($msg) { Write-Output "[markgen] $msg"; Set-Status $msg }
 
 Set-Status 'Starting install...'
-Write-Stage "install: Microsoft SQL Server 2022 Express with SSMS 22 on win2019"
+Write-Stage "install: Microsoft SQL Server 2022 Express + SQL Server Management Studio 22 on win2019"
 
 # --- First-login "install in progress" notice (shown ONLY while installing) ---
 # The install runs as SYSTEM on first boot and can take several minutes on a slow VM. An operator
@@ -42,7 +42,7 @@ New-Item -ItemType Directory -Force -Path $notifyDir | Out-Null
 $notifyPath = Join-Path $notifyDir 'windows-2019-installing.ps1'
 [System.IO.File]::WriteAllBytes(
     $notifyPath,
-    [System.Convert]::FromBase64String('PCMKICBHZW5lcmF0ZWQgZmlyc3QtbG9naW4gImluc3RhbGwgaW4gcHJvZ3Jlc3MiIExJVkUgU1RBVFVTIHdpbmRvdyAod2luZG93cy0yMDE5LWluc3RhbGxpbmcucHMxKS4KICBTaG93biB0byBhbiBvcGVyYXRvciB3aG8gUkRQcyBpbiBXSElMRSB0aGUgbWFya2V0cGxhY2UgaW5zdGFsbCBpcyBzdGlsbCBydW5uaW5nIChpdCBydW5zIGFzIFNZU1RFTQogIG9uIGZpcnN0IGJvb3QgYW5kIGNhbiB0YWtlIHNldmVyYWwgbWludXRlcyBvbiBhIHNsb3cgVk0pLiBUaGUgaW5zdGFsbCBzY3JpcHQgcmVnaXN0ZXJzIGEgc2NoZWR1bGVkCiAgdGFzayAodHJpZ2dlcjogYXQtbG9nb24sIGludGVyYWN0aXZlKSB0aGF0IHJ1bnMgVEhJUy4KCiAgVGhlIGluc3RhbGwgKFNZU1RFTSkgYW5kIHRoaXMgd2luZG93IChpbnRlcmFjdGl2ZSB1c2VyKSBhcmUgc2VwYXJhdGUgcHJvY2Vzc2VzLCBzbyB0aGlzIGNhbid0IHJlYWQKICB0aGUgaW5zdGFsbCdzIGxpdmUgc3Rkb3V0LiBJbnN0ZWFkIHRoZSBpbnN0YWxsIHB1Ymxpc2hlcyBicmVhZGNydW1iIGZpbGVzIHVuZGVyIEM6XFByb2dyYW1EYXRhXAogIG1hcmtnZW5cIHRoYXQgdGhpcyB3aW5kb3cgUE9MTFMgZXZlcnkgZmV3IHNlY29uZHM6IHRoZSBjdXJyZW50IHN0YWdlICg8YXBwPi1zdGF0dXMudHh0KSwgdGhlIHN0YXJ0CiAgdGltZSAoPGFwcD4taW5zdGFsbC5zdGFydCksIGFuZCBhIGNvbXBsZXRpb24gZmxhZyAoPGFwcD4taW5zdGFsbC5kb25lKS4gVGhpcyB3aW5kb3cgc3RheXMgb3BlbiBhbmQKICByZWZyZXNoZXMgYW4gZWxhcHNlZCB0aW1lciArIGN1cnJlbnQgc3RhZ2UgdW50aWwgaXQgc2VlcyB0aGUgLmRvbmUgZmxhZywgdGhlbiBzaG93cyBhIGJyaWVmCiAgImNvbXBsZXRlIiBsaW5lIGFuZCBleGl0cyAtIHNvIHRoZSBvcGVyYXRvciBhbHdheXMga25vd3MgaXQncyBwcm9ncmVzc2luZyBhbmQgaG93IGxvbmcgaXQncyB0YWtlbi4KIz4KJEVycm9yQWN0aW9uUHJlZmVyZW5jZSA9ICdTaWxlbnRseUNvbnRpbnVlJwoKJGRpciAgICAgICA9IEpvaW4tUGF0aCAkZW52OlByb2dyYW1EYXRhICdtYXJrZ2VuJwokc3RhdHVzRmlsZSA9IEpvaW4tUGF0aCAkZGlyICd3aW5kb3dzLTIwMTktc3RhdHVzLnR4dCcKJHN0YXJ0RmlsZSAgPSBKb2luLVBhdGggJGRpciAnd2luZG93cy0yMDE5LWluc3RhbGwuc3RhcnQnCiRkb25lRmlsZSAgID0gSm9pbi1QYXRoICRkaXIgJ3dpbmRvd3MtMjAxOS1pbnN0YWxsLmRvbmUnCgojIEFuY2hvciBlbGFwc2VkIHRvIHRoZSBpbnN0YWxsJ3MgcmVjb3JkZWQgc3RhcnQgdGltZSBpZiBwcmVzZW50IChzbyB0aGUgdGltZXIgcmVmbGVjdHMgdGhlIHJlYWwKIyBpbnN0YWxsIGFnZSBldmVuIGlmIHRoZSBvcGVyYXRvciBsb2dnZWQgaW4gbGF0ZSksIGVsc2UgdG8gbm93Lgp0cnkgeyAkc3RhcnQgPSBbZGF0ZXRpbWVdOjpQYXJzZSgoR2V0LUNvbnRlbnQgLVJhdyAkc3RhcnRGaWxlKSkgfSBjYXRjaCB7ICRzdGFydCA9IEdldC1EYXRlIH0KCiRiYXIgPSAnIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMnCiMgUG9sbCB1bnRpbCB0aGUgaW5zdGFsbCBzaWduYWxzIGRvbmUsIHdpdGggYSBoYXJkIHNhZmV0eSBjYXAgc28gdGhpcyBjYW4gbmV2ZXIgc3BpbiBmb3JldmVyLgpmb3IgKCRpID0gMDsgJGkgLWx0IDkwMDsgJGkrKykgewogICAgJGRvbmUgPSBUZXN0LVBhdGggJGRvbmVGaWxlCiAgICAkc3RhZ2UgPSBpZiAoVGVzdC1QYXRoICRzdGF0dXNGaWxlKSB7IChHZXQtQ29udGVudCAtUmF3ICRzdGF0dXNGaWxlKS5UcmltKCkgfSBlbHNlIHsgJ1ByZXBhcmluZy4uLicgfQogICAgJGVsYXBzZWQgPSAoR2V0LURhdGUpIC0gJHN0YXJ0CiAgICAkbW0gPSBbaW50XSRlbGFwc2VkLlRvdGFsTWludXRlcwogICAgJHNzID0gJGVsYXBzZWQuU2Vjb25kcwoKICAgIENsZWFyLUhvc3QKICAgIFdyaXRlLUhvc3QgJGJhciAtRm9yZWdyb3VuZENvbG9yIFllbGxvdwogICAgV3JpdGUtSG9zdCAoIiMgICBZb3VyIE1hcmtldHBsYWNlIEFwcCAoTWljcm9zb2Z0IFNRTCBTZXJ2ZXIgMjAyMiBFeHByZXNzIHdpdGggU1NNUyAyMikgaXMgSU5TVEFMTElORyAtIHBsZWFzZSB3YWl0LiIpIC1Gb3JlZ3JvdW5kQ29sb3IgWWVsbG93CiAgICBXcml0ZS1Ib3N0ICRiYXIgLUZvcmVncm91bmRDb2xvciBZZWxsb3cKICAgIFdyaXRlLUhvc3QgIiIKICAgIGlmICgkZG9uZSkgewogICAgICAgIFdyaXRlLUhvc3QgKCIgIFN0YXR1cyA6IEluc3RhbGwgY29tcGxldGUuIikgLUZvcmVncm91bmRDb2xvciBHcmVlbgogICAgICAgIFdyaXRlLUhvc3QgKCIgIEVsYXBzZWQ6IHswfW0gezE6MDB9cyIgLWYgJG1tLCAkc3MpIC1Gb3JlZ3JvdW5kQ29sb3IgR3JlZW4KICAgICAgICBXcml0ZS1Ib3N0ICIiCiAgICAgICAgV3JpdGUtSG9zdCAiICBUaGUgYXBwIGlzIHJlYWR5LiBUaGlzIHdpbmRvdyB3aWxsIGNsb3NlIG5vdzsgYSAnZGVwbG95ZWQgc3VjY2Vzc2Z1bGx5JyIgLUZvcmVncm91bmRDb2xvciBHcmVlbgogICAgICAgIFdyaXRlLUhvc3QgIiAgbWVzc2FnZSB3aXRoIGFueSBjcmVkZW50aWFscyBmb2xsb3dzLiIgLUZvcmVncm91bmRDb2xvciBHcmVlbgogICAgICAgIFN0YXJ0LVNsZWVwIC1TZWNvbmRzIDQKICAgICAgICBicmVhawogICAgfQogICAgV3JpdGUtSG9zdCAoIiAgU3RhdHVzIDogezB9IiAtZiAkc3RhZ2UpIC1Gb3JlZ3JvdW5kQ29sb3IgWWVsbG93CiAgICBXcml0ZS1Ib3N0ICgiICBFbGFwc2VkOiB7MH1tIHsxOjAwfXMiIC1mICRtbSwgJHNzKSAtRm9yZWdyb3VuZENvbG9yIFllbGxvdwogICAgV3JpdGUtSG9zdCAiIgogICAgV3JpdGUtSG9zdCAiICBJbnN0YWxsaW5nIGluIHRoZSBiYWNrZ3JvdW5kIChhIGZldyBtaW51dGVzIG9uIGEgZnJlc2ggVk0pLiBEbyBOT1QgcmVzdGFydCB0aGUgVk0uIiAtRm9yZWdyb3VuZENvbG9yIFllbGxvdwogICAgV3JpdGUtSG9zdCAiICBUaGlzIHdpbmRvdyB1cGRhdGVzIGV2ZXJ5IGZldyBzZWNvbmRzIGFuZCBjbG9zZXMgYXV0b21hdGljYWxseSB3aGVuIHRoZSBhcHAgaXMgcmVhZHkuIiAtRm9yZWdyb3VuZENvbG9yIFllbGxvdwogICAgU3RhcnQtU2xlZXAgLVNlY29uZHMgMwp9Cg==')
+    [System.Convert]::FromBase64String('PCMKICBHZW5lcmF0ZWQgZmlyc3QtbG9naW4gImluc3RhbGwgaW4gcHJvZ3Jlc3MiIExJVkUgU1RBVFVTIHdpbmRvdyAod2luZG93cy0yMDE5LWluc3RhbGxpbmcucHMxKS4KICBTaG93biB0byBhbiBvcGVyYXRvciB3aG8gUkRQcyBpbiBXSElMRSB0aGUgbWFya2V0cGxhY2UgaW5zdGFsbCBpcyBzdGlsbCBydW5uaW5nIChpdCBydW5zIGFzIFNZU1RFTQogIG9uIGZpcnN0IGJvb3QgYW5kIGNhbiB0YWtlIHNldmVyYWwgbWludXRlcyBvbiBhIHNsb3cgVk0pLiBUaGUgaW5zdGFsbCBzY3JpcHQgcmVnaXN0ZXJzIGEgc2NoZWR1bGVkCiAgdGFzayAodHJpZ2dlcjogYXQtbG9nb24sIGludGVyYWN0aXZlKSB0aGF0IHJ1bnMgVEhJUy4KCiAgVGhlIGluc3RhbGwgKFNZU1RFTSkgYW5kIHRoaXMgd2luZG93IChpbnRlcmFjdGl2ZSB1c2VyKSBhcmUgc2VwYXJhdGUgcHJvY2Vzc2VzLCBzbyB0aGlzIGNhbid0IHJlYWQKICB0aGUgaW5zdGFsbCdzIGxpdmUgc3Rkb3V0LiBJbnN0ZWFkIHRoZSBpbnN0YWxsIHB1Ymxpc2hlcyBicmVhZGNydW1iIGZpbGVzIHVuZGVyIEM6XFByb2dyYW1EYXRhXAogIG1hcmtnZW5cIHRoYXQgdGhpcyB3aW5kb3cgUE9MTFMgZXZlcnkgZmV3IHNlY29uZHM6IHRoZSBjdXJyZW50IHN0YWdlICg8YXBwPi1zdGF0dXMudHh0KSwgdGhlIHN0YXJ0CiAgdGltZSAoPGFwcD4taW5zdGFsbC5zdGFydCksIGFuZCBhIGNvbXBsZXRpb24gZmxhZyAoPGFwcD4taW5zdGFsbC5kb25lKS4gVGhpcyB3aW5kb3cgc3RheXMgb3BlbiBhbmQKICByZWZyZXNoZXMgYW4gZWxhcHNlZCB0aW1lciArIGN1cnJlbnQgc3RhZ2UgdW50aWwgaXQgc2VlcyB0aGUgLmRvbmUgZmxhZywgdGhlbiBzaG93cyBhIGJyaWVmCiAgImNvbXBsZXRlIiBsaW5lIGFuZCBleGl0cyAtIHNvIHRoZSBvcGVyYXRvciBhbHdheXMga25vd3MgaXQncyBwcm9ncmVzc2luZyBhbmQgaG93IGxvbmcgaXQncyB0YWtlbi4KIz4KJEVycm9yQWN0aW9uUHJlZmVyZW5jZSA9ICdTaWxlbnRseUNvbnRpbnVlJwoKJGRpciAgICAgICA9IEpvaW4tUGF0aCAkZW52OlByb2dyYW1EYXRhICdtYXJrZ2VuJwokc3RhdHVzRmlsZSA9IEpvaW4tUGF0aCAkZGlyICd3aW5kb3dzLTIwMTktc3RhdHVzLnR4dCcKJHN0YXJ0RmlsZSAgPSBKb2luLVBhdGggJGRpciAnd2luZG93cy0yMDE5LWluc3RhbGwuc3RhcnQnCiRkb25lRmlsZSAgID0gSm9pbi1QYXRoICRkaXIgJ3dpbmRvd3MtMjAxOS1pbnN0YWxsLmRvbmUnCgojIEFuY2hvciBlbGFwc2VkIHRvIHRoZSBpbnN0YWxsJ3MgcmVjb3JkZWQgc3RhcnQgdGltZSBpZiBwcmVzZW50IChzbyB0aGUgdGltZXIgcmVmbGVjdHMgdGhlIHJlYWwKIyBpbnN0YWxsIGFnZSBldmVuIGlmIHRoZSBvcGVyYXRvciBsb2dnZWQgaW4gbGF0ZSksIGVsc2UgdG8gbm93Lgp0cnkgeyAkc3RhcnQgPSBbZGF0ZXRpbWVdOjpQYXJzZSgoR2V0LUNvbnRlbnQgLVJhdyAkc3RhcnRGaWxlKSkgfSBjYXRjaCB7ICRzdGFydCA9IEdldC1EYXRlIH0KCiRiYXIgPSAnIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMnCiMgUG9sbCB1bnRpbCB0aGUgaW5zdGFsbCBzaWduYWxzIGRvbmUsIHdpdGggYSBoYXJkIHNhZmV0eSBjYXAgc28gdGhpcyBjYW4gbmV2ZXIgc3BpbiBmb3JldmVyLgpmb3IgKCRpID0gMDsgJGkgLWx0IDkwMDsgJGkrKykgewogICAgJGRvbmUgPSBUZXN0LVBhdGggJGRvbmVGaWxlCiAgICAkc3RhZ2UgPSBpZiAoVGVzdC1QYXRoICRzdGF0dXNGaWxlKSB7IChHZXQtQ29udGVudCAtUmF3ICRzdGF0dXNGaWxlKS5UcmltKCkgfSBlbHNlIHsgJ1ByZXBhcmluZy4uLicgfQogICAgJGVsYXBzZWQgPSAoR2V0LURhdGUpIC0gJHN0YXJ0CiAgICAkbW0gPSBbaW50XSRlbGFwc2VkLlRvdGFsTWludXRlcwogICAgJHNzID0gJGVsYXBzZWQuU2Vjb25kcwoKICAgIENsZWFyLUhvc3QKICAgIFdyaXRlLUhvc3QgJGJhciAtRm9yZWdyb3VuZENvbG9yIFllbGxvdwogICAgV3JpdGUtSG9zdCAoIiMgICBZb3VyIE1hcmtldHBsYWNlIEFwcCAoTWljcm9zb2Z0IFNRTCBTZXJ2ZXIgMjAyMiBFeHByZXNzICsgU1FMIFNlcnZlciBNYW5hZ2VtZW50IFN0dWRpbyAyMikgaXMgSU5TVEFMTElORyAtIHBsZWFzZSB3YWl0LiIpIC1Gb3JlZ3JvdW5kQ29sb3IgWWVsbG93CiAgICBXcml0ZS1Ib3N0ICRiYXIgLUZvcmVncm91bmRDb2xvciBZZWxsb3cKICAgIFdyaXRlLUhvc3QgIiIKICAgIGlmICgkZG9uZSkgewogICAgICAgIFdyaXRlLUhvc3QgKCIgIFN0YXR1cyA6IEluc3RhbGwgY29tcGxldGUuIikgLUZvcmVncm91bmRDb2xvciBHcmVlbgogICAgICAgIFdyaXRlLUhvc3QgKCIgIEVsYXBzZWQ6IHswfW0gezE6MDB9cyIgLWYgJG1tLCAkc3MpIC1Gb3JlZ3JvdW5kQ29sb3IgR3JlZW4KICAgICAgICBXcml0ZS1Ib3N0ICIiCiAgICAgICAgV3JpdGUtSG9zdCAiICBUaGUgYXBwIGlzIHJlYWR5LiBUaGlzIHdpbmRvdyB3aWxsIGNsb3NlIG5vdzsgYSAnZGVwbG95ZWQgc3VjY2Vzc2Z1bGx5JyIgLUZvcmVncm91bmRDb2xvciBHcmVlbgogICAgICAgIFdyaXRlLUhvc3QgIiAgbWVzc2FnZSB3aXRoIGFueSBjcmVkZW50aWFscyBmb2xsb3dzLiIgLUZvcmVncm91bmRDb2xvciBHcmVlbgogICAgICAgIFN0YXJ0LVNsZWVwIC1TZWNvbmRzIDQKICAgICAgICBicmVhawogICAgfQogICAgV3JpdGUtSG9zdCAoIiAgU3RhdHVzIDogezB9IiAtZiAkc3RhZ2UpIC1Gb3JlZ3JvdW5kQ29sb3IgWWVsbG93CiAgICBXcml0ZS1Ib3N0ICgiICBFbGFwc2VkOiB7MH1tIHsxOjAwfXMiIC1mICRtbSwgJHNzKSAtRm9yZWdyb3VuZENvbG9yIFllbGxvdwogICAgV3JpdGUtSG9zdCAiIgogICAgV3JpdGUtSG9zdCAiICBJbnN0YWxsaW5nIGluIHRoZSBiYWNrZ3JvdW5kIChhIGZldyBtaW51dGVzIG9uIGEgZnJlc2ggVk0pLiBEbyBOT1QgcmVzdGFydCB0aGUgVk0uIiAtRm9yZWdyb3VuZENvbG9yIFllbGxvdwogICAgV3JpdGUtSG9zdCAiICBUaGlzIHdpbmRvdyB1cGRhdGVzIGV2ZXJ5IGZldyBzZWNvbmRzIGFuZCBjbG9zZXMgYXV0b21hdGljYWxseSB3aGVuIHRoZSBhcHAgaXMgcmVhZHkuIiAtRm9yZWdyb3VuZENvbG9yIFllbGxvdwogICAgU3RhcnQtU2xlZXAgLVNlY29uZHMgMwp9Cg==')
 )
 $notifyTask = 'markgen-windows-2019-installing'
 $notifyAction = New-ScheduledTaskAction -Execute 'powershell.exe' `
@@ -77,7 +77,7 @@ if ($mgSecretDir -and $mgSecretDir -notmatch '^[A-Za-z]:[\\/]?$' -and -not (Test
 if (-not $mgSecretFilesInit.ContainsKey('C:\credentials.txt')) {
     $mgCredHeader = @(
         "==================================================================",
-        "  Microsoft SQL Server 2022 Express with SSMS 22 - deployment credentials",
+        "  Microsoft SQL Server 2022 Express + SQL Server Management Studio 22 - deployment credentials",
         "  Generated on this server at first boot. Keep this file secure.",
         "=================================================================="
     )
@@ -98,147 +98,122 @@ Write-Stage "install: stored secret sa_password at C:\credentials.txt"
 # begins. The LLM install steps below use Write-Output (not Write-Stage), so they don't update the
 # status breadcrumb - without this the notice would sit on the internal "registered 'installing'
 # notice" wiring line for the whole install. This gives the operator a meaningful stage instead.
-Set-Status 'Installing Microsoft SQL Server 2022 Express with SSMS 22 and dependencies (this can take a few minutes)...'
+Set-Status 'Installing Microsoft SQL Server 2022 Express + SQL Server Management Studio 22 and dependencies (this can take a few minutes)...'
 
 # ----- BEGIN app-specific tasks (LLM-generated from AppSpec) -----
-Write-Output "=== Installing Microsoft SQL Server 2022 Express + SSMS 22 ==="
+$staging = 'C:\Temp\sqlinstall'
+New-Item -ItemType Directory -Force -Path $staging | Out-Null
 
-$stage = 'C:\Temp\sqlinstall'
-New-Item -ItemType Directory -Force -Path $stage | Out-Null
-
-function Get-FileWithRetry {
-    param([string]$Url, [string]$Dest, [int]$Attempts = 4)
-    for ($i = 1; $i -le $Attempts; $i++) {
+function Get-RemoteFile {
+    param($Url, $OutFile)
+    for ($i = 1; $i -le 4; $i++) {
         try {
-            Write-Output "Downloading $Url (attempt $i)..."
-            $wc = New-Object System.Net.WebClient
-            $wc.DownloadFile($Url, $Dest)
-            if ((Test-Path $Dest) -and ((Get-Item $Dest).Length -gt 0)) { return }
+            Write-Output "downloading $Url (attempt $i)"
+            Invoke-WebRequest -UseBasicParsing -Uri $Url -OutFile $OutFile -TimeoutSec 1800
+            if ((Test-Path $OutFile) -and (Get-Item $OutFile).Length -gt 0) { return }
         } catch {
             Write-Output "download attempt $i failed: $($_.Exception.Message)"
             Start-Sleep -Seconds 10
         }
     }
-    throw "Failed to download $Url after $Attempts attempts"
+    throw "failed to download $Url after multiple attempts"
 }
 
-$instance = 'SQLEXPRESS'
-$svc = 'MSSQL$SQLEXPRESS'
+$svcName = 'MSSQL$SQLEXPRESS'
+$existing = Get-Service -Name $svcName -ErrorAction SilentlyContinue
 
-# ---- (1) Install SQL Server 2022 Express Database Engine ----
-$sqlSvcExisting = Get-Service -Name $svc -ErrorAction SilentlyContinue
-if (-not $sqlSvcExisting) {
-    $bootstrap = Join-Path $stage 'SQLEXPR_x64_ENU.exe'
-    Get-FileWithRetry -Url 'https://download.microsoft.com/download/3/8/d/38de7036-2433-4207-8eae-06e247e17b25/SQLEXPR_x64_ENU.exe' -Dest $bootstrap
+if (-not $existing) {
+    # --- Download SQL Server 2022 Express bootstrapper ---
+    $sqlExe = Join-Path $staging 'SQLEXPR_x64_ENU.exe'
+    Get-RemoteFile -Url 'https://download.microsoft.com/download/3/8/d/38de7036-2433-4207-8eae-06e247e17b25/SQLEXPR_x64_ENU.exe' -OutFile $sqlExe
 
-    $extract = Join-Path $stage 'extracted'
-    Remove-Item -Recurse -Force $extract -ErrorAction SilentlyContinue
-    Write-Output "Extracting SQL Server setup..."
-    $p = Start-Process -FilePath $bootstrap -ArgumentList "/x:`"$extract`"", '/q' -Wait -PassThru
-    if ($p.ExitCode -ne 0) { throw "SQL Express self-extract failed with exit code $($p.ExitCode)" }
+    # --- Self-extract to a clean folder, then run setup.exe fully silently ---
+    $extractDir = Join-Path $staging 'extract'
+    if (Test-Path $extractDir) { Remove-Item -Recurse -Force $extractDir -ErrorAction SilentlyContinue }
+    Write-Output "extracting SQL Server Express installer"
+    $p = Start-Process -FilePath $sqlExe -ArgumentList "/x:`"$extractDir`"", '/q' -Wait -PassThru
+    if ($p.ExitCode -ne 0 -and $p.ExitCode -ne 3010) { throw "SQL Express self-extract failed with exit code $($p.ExitCode)" }
 
-    $setup = Join-Path $extract 'setup.exe'
+    $setup = Join-Path $extractDir 'setup.exe'
     if (-not (Test-Path $setup)) { throw "setup.exe not found after extraction at $setup" }
 
-    Write-Output "Running SQL Server Express setup (fully silent)..."
-    # Omit /SQLSVCACCOUNT -> setup uses the per-instance virtual account (NT Service\MSSQL$SQLEXPRESS),
-    # which needs no quoting and is best practice. Quote values so a space can never mangle the arg.
+    Write-Output "installing SQL Server 2022 Express Database Engine (instance SQLEXPRESS)"
+    # Omit /SQLSVCACCOUNT - setup uses the per-instance virtual account (best practice, no quoting).
+    # Quote /SAPWD in case the generated password contains spaces/special chars.
     $sqlArgs = @(
-        '/Q',
         '/ACTION=Install',
-        '/IACCEPTSQLSERVERLICENSETERMS',
         '/FEATURES=SQLENGINE',
         '/INSTANCENAME=SQLEXPRESS',
         '/SECURITYMODE=SQL',
-        ('/SAPWD="{0}"' -f $sa_password),
-        '/SQLSYSADMINACCOUNTS="BUILTIN\Administrators"',
+        "/SAPWD=`"$sa_password`"",
+        '/SQLSYSADMINACCOUNTS=BUILTIN\Administrators',
         '/TCPENABLED=1',
         '/NPENABLED=0',
-        '/UPDATEENABLED=False'
+        '/UPDATEENABLED=False',
+        '/IACCEPTSQLSERVERLICENSETERMS',
+        '/Q'
     )
     $sp = Start-Process -FilePath $setup -ArgumentList $sqlArgs -Wait -PassThru
-    if ($sp.ExitCode -ne 0 -and $sp.ExitCode -ne 3010) {
-        throw "SQL Server Express setup failed with exit code $($sp.ExitCode)"
-    }
-    Write-Output "SQL Server Express setup completed (exit code $($sp.ExitCode))."
+    if ($sp.ExitCode -ne 0 -and $sp.ExitCode -ne 3010) { throw "SQL Server Express setup failed with exit code $($sp.ExitCode)" }
+    Write-Output "SQL Server Express engine installed (exit code $($sp.ExitCode))"
 } else {
-    Write-Output "SQL Server instance $instance already present; skipping engine install."
+    Write-Output "SQL Server Express instance already present; skipping engine install"
 }
 
-# ---- (2) Pin TCP port 1433 for the instance and enable TCP ----
-$tcpBase = 'HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\MSSQL16.SQLEXPRESS\MSSQLServer\SuperSocketNetLib\Tcp'
-if (Test-Path $tcpBase) {
-    Set-ItemProperty -Path $tcpBase -Name 'Enabled' -Value 1 -ErrorAction SilentlyContinue
-    $ipAll = Join-Path $tcpBase 'IPAll'
-    if (Test-Path $ipAll) {
-        Set-ItemProperty -Path $ipAll -Name 'TcpPort' -Value '1433'
-        Set-ItemProperty -Path $ipAll -Name 'TcpDynamicPorts' -Value ''
-        Write-Output "Pinned SQL Server IPAll TcpPort=1433 and cleared TcpDynamicPorts."
+# --- Force TCP to listen on static port 1433 on all IP addresses ---
+$instanceId = (Get-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\Instance Names\SQL' -ErrorAction SilentlyContinue).SQLEXPRESS
+if ($instanceId) {
+    $tcpBase = "HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\$instanceId\MSSQLServer\SuperSocketNetLib\Tcp"
+    if (Test-Path $tcpBase) {
+        Set-ItemProperty -Path $tcpBase -Name 'Enabled' -Value 1 -ErrorAction SilentlyContinue
+        $ipAll = Join-Path $tcpBase 'IPAll'
+        if (Test-Path $ipAll) {
+            Set-ItemProperty -Path $ipAll -Name 'TcpDynamicPorts' -Value '' 
+            Set-ItemProperty -Path $ipAll -Name 'TcpPort' -Value '1433'
+        }
+        # Enable & set static port on every per-IP subkey so it binds on 0.0.0.0 / ::
+        Get-ChildItem -Path $tcpBase | Where-Object { $_.PSChildName -like 'IP*' -and $_.PSChildName -ne 'IPAll' } | ForEach-Object {
+            Set-ItemProperty -Path $_.PSPath -Name 'Enabled' -Value 1 -ErrorAction SilentlyContinue
+            Set-ItemProperty -Path $_.PSPath -Name 'TcpDynamicPorts' -Value '' -ErrorAction SilentlyContinue
+            Set-ItemProperty -Path $_.PSPath -Name 'TcpPort' -Value '1433' -ErrorAction SilentlyContinue
+        }
+        Write-Output "configured SQL Server TCP listener on static port 1433 (instance $instanceId)"
     }
-} else {
-    Write-Output "WARNING: TCP registry key not found at $tcpBase"
 }
 
-# ---- Ensure the service runs now and on every boot ----
-Set-Service -Name $svc -StartupType Automatic
-Restart-Service -Name $svc -Force
-Start-Sleep -Seconds 5
-$s = Get-Service -Name $svc
-if ($s.Status -ne 'Running') { Start-Service -Name $svc }
-Write-Output "Service ${svc}: $((Get-Service -Name $svc).Status)"
+# --- Ensure the service runs now and on every boot (restart to apply TCP config) ---
+Set-Service -Name $svcName -StartupType Automatic
+Restart-Service -Name $svcName -Force
+Write-Output "SQL Server Express service ($svcName) is running and set to start automatically"
 
-# ---- Firewall rule for TCP 1433 ----
+# --- Firewall: allow inbound TCP 1433 ---
 if (-not (Get-NetFirewallRule -DisplayName 'SQL Server 1433' -ErrorAction SilentlyContinue)) {
-    New-NetFirewallRule -DisplayName 'SQL Server 1433' -Direction Inbound -Protocol TCP -LocalPort 1433 -Action Allow -Profile Any | Out-Null
-    Write-Output "Added firewall rule for TCP 1433."
+    New-NetFirewallRule -DisplayName 'SQL Server 1433' -Direction Inbound -Protocol TCP -LocalPort 1433 -Action Allow | Out-Null
+    Write-Output "opened firewall for TCP 1433"
+}
+
+# --- Install SQL Server Management Studio 22 (fully silent) ---
+$ssmsExe = Join-Path $staging 'vs_SSMS.exe'
+Get-RemoteFile -Url 'https://aka.ms/ssms/22/release/vs_SSMS.exe' -OutFile $ssmsExe
+Write-Output "installing SQL Server Management Studio 22 (this can take several minutes)"
+$ss = Start-Process -FilePath $ssmsExe -ArgumentList '--quiet', '--norestart', '--wait' -Wait -PassThru
+if ($ss.ExitCode -ne 0 -and $ss.ExitCode -ne 3010) {
+    Write-Output "WARNING: SSMS installer returned exit code $($ss.ExitCode) (engine is unaffected)"
 } else {
-    Write-Output "Firewall rule 'SQL Server 1433' already exists."
+    Write-Output "SSMS 22 installed (exit code $($ss.ExitCode))"
 }
 
-# ---- Persist the sa password ----
-Set-Content -Path 'C:\credentials.txt' -Value "sa_password=$sa_password" -Encoding ASCII
-Write-Output "Wrote sa credentials to C:\credentials.txt"
+# --- Append connection info + reboot note to the credentials document (never overwrite) ---
+$ip = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -notlike '127.*' } | Select-Object -First 1).IPAddress
+Add-Content -Path 'C:\credentials.txt' -Value ''
+Add-Content -Path 'C:\credentials.txt' -Value '--- SQL Server 2022 Express connection ---'
+Add-Content -Path 'C:\credentials.txt' -Value "Server: tcp:$ip,1433   Instance: SQLEXPRESS   Login: sa   Password: (see 'Sa Password' above)"
+Add-Content -Path 'C:\credentials.txt' -Value "Connection string: Server=tcp:$ip,1433;Database=master;User ID=sa;Password=<see above>;Encrypt=False"
+Add-Content -Path 'C:\credentials.txt' -Value 'NOTE: SQL Server Management Studio 22 may require one reboot before it launches from the desktop shortcut. The database engine works without that reboot.'
 
-# ---- (3) Install SQL Server Management Studio 22 (non-blocking, fully silent) ----
-$ssmsExe = 'C:\Program Files\Microsoft SQL Server Management Studio 22\Release\Common7\IDE\Ssms.exe'
-if (-not (Test-Path $ssmsExe)) {
-    $ssmsInstaller = Join-Path $stage 'vs_SSMS.exe'
-    Get-FileWithRetry -Url 'https://aka.ms/ssms/22/release/vs_SSMS.exe' -Dest $ssmsInstaller
-
-    Write-Output "Installing SSMS 22 (this may take several minutes)..."
-    $ssmsProc = Start-Process -FilePath $ssmsInstaller -ArgumentList '--quiet', '--norestart', '--wait' -PassThru
-    $deadline = (Get-Date).AddMinutes(30)
-    while ((Get-Date) -lt $deadline) {
-        if (Test-Path $ssmsExe) { break }
-        if ($ssmsProc.HasExited -and (Test-Path $ssmsExe)) { break }
-        Start-Sleep -Seconds 15
-    }
-    if (Test-Path $ssmsExe) {
-        Write-Output "SSMS 22 installed at $ssmsExe"
-    } else {
-        Write-Output "WARNING: SSMS Ssms.exe not detected within timeout; continuing (SQL engine is functional)."
-    }
-} else {
-    Write-Output "SSMS 22 already installed."
-}
-
-# ---- SSMS desktop shortcut (all-users) ----
-if (Test-Path $ssmsExe) {
-    $publicDesktop = Join-Path $env:PUBLIC 'Desktop'
-    $lnk = Join-Path $publicDesktop 'SQL Server Management Studio 22.lnk'
-    $wsh = New-Object -ComObject WScript.Shell
-    $sc = $wsh.CreateShortcut($lnk)
-    $sc.TargetPath = $ssmsExe
-    $sc.Description = 'SQL Server Management Studio 22'
-    $sc.Save()
-    Write-Output "Created SSMS 22 shortcut on the all-users desktop."
-}
-
-# ---- Clean up staging dir ----
-Remove-Item -Recurse -Force $stage -ErrorAction SilentlyContinue
-Write-Output "Removed staging directory $stage"
-
-Write-Output "=== SQL Server 2022 Express + SSMS 22 install complete ==="
+# --- Clean up staging (idempotent: a re-run re-downloads if absent) ---
+Remove-Item -Recurse -Force $staging -ErrorAction SilentlyContinue
+Write-Output "removed installer staging directory"
 # ----- END app-specific tasks -----
 
 Set-Status 'Finalizing (service, firewall, shortcut)...'
@@ -265,7 +240,7 @@ New-Item -ItemType Directory -Force -Path $cleanupDir | Out-Null
 $cleanupPath = Join-Path $cleanupDir 'windows-2019-cleanup.ps1'
 [System.IO.File]::WriteAllBytes(
     $cleanupPath,
-    [System.Convert]::FromBase64String('PCMKICBJTlZBUklBTlQgLSB0aGUgV2luZG93cyBmaXJzdC1sb2dpbiBjbGVhbnVwIHNjcmlwdCAoPGFwcD4tY2xlYW51cC5wczEpLgogIFdpbmRvd3MgYW5hbG9nIG9mIHRoZSBMaW51eCA8YXBwPl9jbGVhbnVwLnNoOiBvbiBmaXJzdCBpbnRlcmFjdGl2ZSBsb2dpbiBpdCBwcmludHMgdGhlIHN1Y2Nlc3MKICBiYW5uZXIgKyBhbnkgc3RvcmVkIGNyZWRlbnRpYWxzLCB0aGVuIHdpcGVzIGluc3RhbGwgdHJhY2VzIChjbG91ZGJhc2UtaW5pdCBsb2dzLCB0ZW1wKSBhbmQKICBzZWxmLWRlbGV0ZXMuIFJ1biBvbmNlIHZpYSBhIHNjaGVkdWxlZCB0YXNrICh0cmlnZ2VyOiBhdC1sb2dvbikgdGhhdCB0aGUgaW5zdGFsbCBzY3JpcHQKICByZWdpc3RlcmVkOyB0aGlzIHNjcmlwdCB1bnJlZ2lzdGVycyB0aGF0IHRhc2sgb24gaXRzIGZpcnN0IHJ1biBmb3IgcnVuLW9uY2Ugc2VtYW50aWNzLiBSdW5zIGluCiAgdGhlIHVzZXIncyBpbnRlcmFjdGl2ZSBzZXNzaW9uIHNvIHRoZSBiYW5uZXIgd2luZG93IGlzIFZJU0lCTEUuCiM+CiRFcnJvckFjdGlvblByZWZlcmVuY2UgPSAnU2lsZW50bHlDb250aW51ZScKCldyaXRlLUhvc3QgIj09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09IiAtRm9yZWdyb3VuZENvbG9yIEdyZWVuCldyaXRlLUhvc3QgIiAgU1VDQ0VTUyAgWW91ciBNYXJrZXRwbGFjZSBBcHAgKE1pY3Jvc29mdCBTUUwgU2VydmVyIDIwMjIgRXhwcmVzcyB3aXRoIFNTTVMgMjIpIGhhcyBiZWVuIGRlcGxveWVkIHN1Y2Nlc3NmdWxseSEiIC1Gb3JlZ3JvdW5kQ29sb3IgR3JlZW4KV3JpdGUtSG9zdCAiPT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0iIC1Gb3JlZ3JvdW5kQ29sb3IgR3JlZW4KV3JpdGUtSG9zdCAiIgpXcml0ZS1Ib3N0ICIgIENyZWRlbnRpYWxzIGZvciB0aGlzIGRlcGxveW1lbnQgKGFsc28gc2F2ZWQgb24gZGlzayk6IiAtRm9yZWdyb3VuZENvbG9yIEN5YW4KV3JpdGUtSG9zdCAiIgppZiAoVGVzdC1QYXRoICdDOlxjcmVkZW50aWFscy50eHQnKSB7CiAgICBXcml0ZS1Ib3N0ICIgIEM6XGNyZWRlbnRpYWxzLnR4dCIgLUZvcmVncm91bmRDb2xvciBEYXJrR3JheQogICAgR2V0LUNvbnRlbnQgJ0M6XGNyZWRlbnRpYWxzLnR4dCcgfCBGb3JFYWNoLU9iamVjdCB7IGlmICgkXy5UcmltKCkpIHsgV3JpdGUtSG9zdCAiICAgICRfIiAtRm9yZWdyb3VuZENvbG9yIFdoaXRlIH0gfQogICAgV3JpdGUtSG9zdCAiIgp9CldyaXRlLUhvc3QgIiAgVGhpcyBiYW5uZXIgYXBwZWFycyBvbmNlIGFuZCBpcyByZW1vdmVkIGFmdGVyIHRoaXMgbG9naW4uIiAtRm9yZWdyb3VuZENvbG9yIERhcmtHcmF5CldyaXRlLUhvc3QgIiIKCiMgQ2xlYW51cCB0cmFjZXMgb2YgdGhlIGRlcGxveW1lbnQuClJlbW92ZS1JdGVtIC1SZWN1cnNlIC1Gb3JjZSAiJGVudjpTeXN0ZW1Ecml2ZVxDbG91ZGJhc2VJbml0XGxvZ1wqIiAtRXJyb3JBY3Rpb24gU2lsZW50bHlDb250aW51ZQpSZW1vdmUtSXRlbSAtUmVjdXJzZSAtRm9yY2UgIiRlbnY6VEVNUFwqIiAtRXJyb3JBY3Rpb24gU2lsZW50bHlDb250aW51ZQpDbGVhci1FdmVudExvZyAtTG9nTmFtZSBBcHBsaWNhdGlvbiwgU3lzdGVtIC1FcnJvckFjdGlvbiBTaWxlbnRseUNvbnRpbnVlCgojIEdpdmUgdGhlIG9wZXJhdG9yIHRpbWUgdG8gcmVhZCB0aGUgYmFubmVyIGJlZm9yZSB0aGUgd2luZG93IGNsb3NlcyAoaXQgcnVucyBpbiB0aGVpciBzZXNzaW9uKS4KV3JpdGUtSG9zdCAiICBUaGlzIHdpbmRvdyB3aWxsIGNsb3NlIGluIDIwIHNlY29uZHMuIiAtRm9yZWdyb3VuZENvbG9yIERhcmtHcmF5ClN0YXJ0LVNsZWVwIC1TZWNvbmRzIDIwCgojIFVucmVnaXN0ZXIgdGhlIGZpcnN0LWxvZ2luIHNjaGVkdWxlZCB0YXNrIChydW4tb25jZSBzZW1hbnRpY3MpICsgZGVsZXRlIHRoaXMgc2NyaXB0IGl0c2VsZi4KVW5yZWdpc3Rlci1TY2hlZHVsZWRUYXNrIC1UYXNrTmFtZSAnbWFya2dlbi13aW5kb3dzLTIwMTktY2xlYW51cCcgLUNvbmZpcm06JGZhbHNlIC1FcnJvckFjdGlvbiBTaWxlbnRseUNvbnRpbnVlCiMgQWxzbyBjbGVhciBhbnkgbGVnYWN5IFJ1bk9uY2UgZW50cnkgZnJvbSBvbGRlciBpbnN0YWxscyAoaGFybWxlc3MgaWYgYWJzZW50KS4KUmVtb3ZlLUl0ZW1Qcm9wZXJ0eSAtUGF0aCAnSEtMTTpcU09GVFdBUkVcTWljcm9zb2Z0XFdpbmRvd3NcQ3VycmVudFZlcnNpb25cUnVuT25jZScgLU5hbWUgJ3dpbmRvd3MtMjAxOV9jbGVhbnVwJyAtRXJyb3JBY3Rpb24gU2lsZW50bHlDb250aW51ZQpSZW1vdmUtSXRlbSAtRm9yY2UgJFBTQ29tbWFuZFBhdGggLUVycm9yQWN0aW9uIFNpbGVudGx5Q29udGludWUK')
+    [System.Convert]::FromBase64String('PCMKICBJTlZBUklBTlQgLSB0aGUgV2luZG93cyBmaXJzdC1sb2dpbiBjbGVhbnVwIHNjcmlwdCAoPGFwcD4tY2xlYW51cC5wczEpLgogIFdpbmRvd3MgYW5hbG9nIG9mIHRoZSBMaW51eCA8YXBwPl9jbGVhbnVwLnNoOiBvbiBmaXJzdCBpbnRlcmFjdGl2ZSBsb2dpbiBpdCBwcmludHMgdGhlIHN1Y2Nlc3MKICBiYW5uZXIgKyBhbnkgc3RvcmVkIGNyZWRlbnRpYWxzLCB0aGVuIHdpcGVzIGluc3RhbGwgdHJhY2VzIChjbG91ZGJhc2UtaW5pdCBsb2dzLCB0ZW1wKSBhbmQKICBzZWxmLWRlbGV0ZXMuIFJ1biBvbmNlIHZpYSBhIHNjaGVkdWxlZCB0YXNrICh0cmlnZ2VyOiBhdC1sb2dvbikgdGhhdCB0aGUgaW5zdGFsbCBzY3JpcHQKICByZWdpc3RlcmVkOyB0aGlzIHNjcmlwdCB1bnJlZ2lzdGVycyB0aGF0IHRhc2sgb24gaXRzIGZpcnN0IHJ1biBmb3IgcnVuLW9uY2Ugc2VtYW50aWNzLiBSdW5zIGluCiAgdGhlIHVzZXIncyBpbnRlcmFjdGl2ZSBzZXNzaW9uIHNvIHRoZSBiYW5uZXIgd2luZG93IGlzIFZJU0lCTEUuCiM+CiRFcnJvckFjdGlvblByZWZlcmVuY2UgPSAnU2lsZW50bHlDb250aW51ZScKCldyaXRlLUhvc3QgIj09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09IiAtRm9yZWdyb3VuZENvbG9yIEdyZWVuCldyaXRlLUhvc3QgIiAgU1VDQ0VTUyAgWW91ciBNYXJrZXRwbGFjZSBBcHAgKE1pY3Jvc29mdCBTUUwgU2VydmVyIDIwMjIgRXhwcmVzcyArIFNRTCBTZXJ2ZXIgTWFuYWdlbWVudCBTdHVkaW8gMjIpIGhhcyBiZWVuIGRlcGxveWVkIHN1Y2Nlc3NmdWxseSEiIC1Gb3JlZ3JvdW5kQ29sb3IgR3JlZW4KV3JpdGUtSG9zdCAiPT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0iIC1Gb3JlZ3JvdW5kQ29sb3IgR3JlZW4KV3JpdGUtSG9zdCAiIgpXcml0ZS1Ib3N0ICIgIENyZWRlbnRpYWxzIGZvciB0aGlzIGRlcGxveW1lbnQgKGFsc28gc2F2ZWQgb24gZGlzayk6IiAtRm9yZWdyb3VuZENvbG9yIEN5YW4KV3JpdGUtSG9zdCAiIgppZiAoVGVzdC1QYXRoICdDOlxjcmVkZW50aWFscy50eHQnKSB7CiAgICBXcml0ZS1Ib3N0ICIgIEM6XGNyZWRlbnRpYWxzLnR4dCIgLUZvcmVncm91bmRDb2xvciBEYXJrR3JheQogICAgR2V0LUNvbnRlbnQgJ0M6XGNyZWRlbnRpYWxzLnR4dCcgfCBGb3JFYWNoLU9iamVjdCB7IGlmICgkXy5UcmltKCkpIHsgV3JpdGUtSG9zdCAiICAgICRfIiAtRm9yZWdyb3VuZENvbG9yIFdoaXRlIH0gfQogICAgV3JpdGUtSG9zdCAiIgp9CldyaXRlLUhvc3QgIiAgVGhpcyBiYW5uZXIgYXBwZWFycyBvbmNlIGFuZCBpcyByZW1vdmVkIGFmdGVyIHRoaXMgbG9naW4uIiAtRm9yZWdyb3VuZENvbG9yIERhcmtHcmF5CldyaXRlLUhvc3QgIiIKCiMgQ2xlYW51cCB0cmFjZXMgb2YgdGhlIGRlcGxveW1lbnQuClJlbW92ZS1JdGVtIC1SZWN1cnNlIC1Gb3JjZSAiJGVudjpTeXN0ZW1Ecml2ZVxDbG91ZGJhc2VJbml0XGxvZ1wqIiAtRXJyb3JBY3Rpb24gU2lsZW50bHlDb250aW51ZQpSZW1vdmUtSXRlbSAtUmVjdXJzZSAtRm9yY2UgIiRlbnY6VEVNUFwqIiAtRXJyb3JBY3Rpb24gU2lsZW50bHlDb250aW51ZQpDbGVhci1FdmVudExvZyAtTG9nTmFtZSBBcHBsaWNhdGlvbiwgU3lzdGVtIC1FcnJvckFjdGlvbiBTaWxlbnRseUNvbnRpbnVlCgojIEdpdmUgdGhlIG9wZXJhdG9yIHRpbWUgdG8gcmVhZCB0aGUgYmFubmVyIGJlZm9yZSB0aGUgd2luZG93IGNsb3NlcyAoaXQgcnVucyBpbiB0aGVpciBzZXNzaW9uKS4KV3JpdGUtSG9zdCAiICBUaGlzIHdpbmRvdyB3aWxsIGNsb3NlIGluIDIwIHNlY29uZHMuIiAtRm9yZWdyb3VuZENvbG9yIERhcmtHcmF5ClN0YXJ0LVNsZWVwIC1TZWNvbmRzIDIwCgojIFVucmVnaXN0ZXIgdGhlIGZpcnN0LWxvZ2luIHNjaGVkdWxlZCB0YXNrIChydW4tb25jZSBzZW1hbnRpY3MpICsgZGVsZXRlIHRoaXMgc2NyaXB0IGl0c2VsZi4KVW5yZWdpc3Rlci1TY2hlZHVsZWRUYXNrIC1UYXNrTmFtZSAnbWFya2dlbi13aW5kb3dzLTIwMTktY2xlYW51cCcgLUNvbmZpcm06JGZhbHNlIC1FcnJvckFjdGlvbiBTaWxlbnRseUNvbnRpbnVlCiMgQWxzbyBjbGVhciBhbnkgbGVnYWN5IFJ1bk9uY2UgZW50cnkgZnJvbSBvbGRlciBpbnN0YWxscyAoaGFybWxlc3MgaWYgYWJzZW50KS4KUmVtb3ZlLUl0ZW1Qcm9wZXJ0eSAtUGF0aCAnSEtMTTpcU09GVFdBUkVcTWljcm9zb2Z0XFdpbmRvd3NcQ3VycmVudFZlcnNpb25cUnVuT25jZScgLU5hbWUgJ3dpbmRvd3MtMjAxOV9jbGVhbnVwJyAtRXJyb3JBY3Rpb24gU2lsZW50bHlDb250aW51ZQpSZW1vdmUtSXRlbSAtRm9yY2UgJFBTQ29tbWFuZFBhdGggLUVycm9yQWN0aW9uIFNpbGVudGx5Q29udGludWUK')
 )
 # The task name MUST match the name the cleanup script unregisters (markgen-windows-2019-cleanup).
 $taskName = 'markgen-windows-2019-cleanup'
