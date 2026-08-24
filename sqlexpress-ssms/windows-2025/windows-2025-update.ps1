@@ -6,7 +6,7 @@
 $ErrorActionPreference = 'Stop'
 
 $App = 'windows-2025'
-$InstalledVersion = 'SQL 2022 Express 16.0.1000.6; SSMS 22.9.12112.369'
+$InstalledVersion = 'SQL Server 2022 Express 16.0.1000.6; SSMS 22'
 $UpstreamSource = 'https://download.microsoft.com/download/3/8/d/38de7036-2433-4207-8eae-06e247e17b25/SQLEXPR_x64_ENU.exe ; https://aka.ms/ssms/22/release/vs_SSMS.exe'
 
 Write-Output "== $App update check =="

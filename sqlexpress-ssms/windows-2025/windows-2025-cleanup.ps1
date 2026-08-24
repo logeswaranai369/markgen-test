@@ -9,7 +9,7 @@
 $ErrorActionPreference = 'SilentlyContinue'
 
 Write-Host "================================================================================" -ForegroundColor Green
-Write-Host "  SUCCESS  Your Marketplace App (Microsoft SQL Server 2022 Express with SSMS 22) has been deployed successfully!" -ForegroundColor Green
+Write-Host "  SUCCESS  Your Marketplace App (Microsoft SQL Server 2022 Express with SQL Server Management Studio 22) has been deployed successfully!" -ForegroundColor Green
 Write-Host "================================================================================" -ForegroundColor Green
 Write-Host ""
 Write-Host "  Credentials for this deployment (also saved on disk):" -ForegroundColor Cyan
